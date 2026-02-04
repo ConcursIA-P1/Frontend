@@ -2,9 +2,9 @@
  * Custom hooks para integração com API
  */
 
-import { useState, useCallback } from 'react';
-import { apiClient, Question, Simulado } from '@/lib/api-client';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useCallback } from "react";
+import { apiClient, Question, Simulado } from "@/lib/api-client";
+import { useToast } from "@/hooks/use-toast";
 
 /**
  * Hook para buscar questões
@@ -20,8 +20,8 @@ export function useQuestions() {
       materia?: string,
       ano?: number,
       topico?: string,
-      pagina: number = 1,
-      limite: number = 20
+      page: number = 1,
+      page_size: number = 20,
     ) => {
       try {
         setLoading(true);
@@ -29,24 +29,25 @@ export function useQuestions() {
           materia,
           ano,
           topico,
-          pagina,
-          limite
+          page,
+          page_size,
         );
-        setQuestions(response.data || []);
+        setQuestions(response.items || response.data || []);
         setError(null);
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Erro desconhecido';
+        const message =
+          err instanceof Error ? err.message : "Erro desconhecido";
         setError(message);
         toast({
-          title: 'Erro',
+          title: "Erro",
           description: message,
-          variant: 'destructive',
+          variant: "destructive",
         });
       } finally {
         setLoading(false);
       }
     },
-    [toast]
+    [toast],
   );
 
   const fetchRandomQuestions = useCallback(
@@ -54,7 +55,7 @@ export function useQuestions() {
       quantidade: number = 10,
       materia?: string,
       ano?: number,
-      topico?: string
+      topico?: string,
     ) => {
       try {
         setLoading(true);
@@ -62,23 +63,24 @@ export function useQuestions() {
           quantidade,
           materia,
           ano,
-          topico
+          topico,
         );
         setQuestions(data);
         setError(null);
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Erro desconhecido';
+        const message =
+          err instanceof Error ? err.message : "Erro desconhecido";
         setError(message);
         toast({
-          title: 'Erro',
+          title: "Erro",
           description: message,
-          variant: 'destructive',
+          variant: "destructive",
         });
       } finally {
         setLoading(false);
       }
     },
-    [toast]
+    [toast],
   );
 
   return {
@@ -100,51 +102,78 @@ export function useSimulados() {
   const { toast } = useToast();
 
   const fetchSimulados = useCallback(
-    async (userId: string) => {
+    async (page: number = 1, page_size: number = 20) => {
       try {
         setLoading(true);
-        const data = await apiClient.listSimulados(userId);
-        setSimulados(data);
+        const response = await apiClient.listSimulados(page, page_size);
+        setSimulados(response.items || response.data || []);
         setError(null);
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Erro desconhecido';
+        const message =
+          err instanceof Error ? err.message : "Erro desconhecido";
         setError(message);
         toast({
-          title: 'Erro',
+          title: "Erro",
           description: message,
-          variant: 'destructive',
+          variant: "destructive",
         });
       } finally {
         setLoading(false);
       }
     },
-    [toast]
+    [toast],
   );
 
-  const createSimulado = useCallback(
-    async (data: Simulado) => {
+  const generateSimulado = useCallback(
+    async (data: any) => {
       try {
         setLoading(true);
-        const newSimulado = await apiClient.createSimulado(data);
-        setSimulados((prev) => [...prev, newSimulado]);
+        const result = await apiClient.generateSimulado(data);
         toast({
-          title: 'Sucesso',
-          description: 'Simulado criado com sucesso',
+          title: "Sucesso",
+          description: `Simulado gerado com ${result.simulado.total_questoes} questões`,
         });
-        return newSimulado;
+        return result;
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Erro desconhecido';
+        const message =
+          err instanceof Error ? err.message : "Erro desconhecido";
         setError(message);
         toast({
-          title: 'Erro',
+          title: "Erro",
           description: message,
-          variant: 'destructive',
+          variant: "destructive",
         });
       } finally {
         setLoading(false);
       }
     },
-    [toast]
+    [toast],
+  );
+
+  const generateQuickSimulado = useCallback(
+    async (data: any) => {
+      try {
+        setLoading(true);
+        const result = await apiClient.generateQuickSimulado(data);
+        toast({
+          title: "Sucesso",
+          description: `Simulado rápido gerado com ${result.simulado.total_questoes} questões`,
+        });
+        return result;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Erro desconhecido";
+        setError(message);
+        toast({
+          title: "Erro",
+          description: message,
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [toast],
   );
 
   const deleteSimulado = useCallback(
@@ -154,22 +183,23 @@ export function useSimulados() {
         await apiClient.deleteSimulado(id);
         setSimulados((prev) => prev.filter((s) => s.id !== id));
         toast({
-          title: 'Sucesso',
-          description: 'Simulado deletado com sucesso',
+          title: "Sucesso",
+          description: "Simulado deletado com sucesso",
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Erro desconhecido';
+        const message =
+          err instanceof Error ? err.message : "Erro desconhecido";
         setError(message);
         toast({
-          title: 'Erro',
+          title: "Erro",
           description: message,
-          variant: 'destructive',
+          variant: "destructive",
         });
       } finally {
         setLoading(false);
       }
     },
-    [toast]
+    [toast],
   );
 
   return {
@@ -177,7 +207,8 @@ export function useSimulados() {
     loading,
     error,
     fetchSimulados,
-    createSimulado,
+    generateSimulado,
+    generateQuickSimulado,
     deleteSimulado,
   };
 }
@@ -187,43 +218,70 @@ export function useSimulados() {
  */
 export function useChat() {
   const [messages, setMessages] = useState<
-    Array<{ role: 'user' | 'assistant'; content: string }>
-  >([]);
+    Array<{ role: "user" | "assistant"; content: string; sources?: string[] }>
+  >([
+    {
+      role: "assistant",
+      content:
+        "Olá! Sou o assistente IA do ConcursIA. Posso te ajudar com dúvidas sobre o ENEM, editais, conteúdos e muito mais. Como posso te ajudar hoje?",
+    },
+  ]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const sendMessage = useCallback(
-    async (message: string, contexto?: string) => {
+    async (message: string) => {
       try {
         setLoading(true);
         // Adicionar mensagem do usuário
-        setMessages((prev) => [...prev, { role: 'user', content: message }]);
+        setMessages((prev) => [...prev, { role: "user", content: message }]);
 
         // Buscar resposta da API
-        const response = await apiClient.sendChatMessage(message, contexto);
+        const response = await apiClient.sendChatMessage(message);
         setMessages((prev) => [
           ...prev,
-          { role: 'assistant', content: response.resposta },
+          {
+            role: "assistant",
+            content: response.answer,
+            sources: response.sources,
+          },
         ]);
         setError(null);
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Erro desconhecido';
-        setError(message);
+        const errorMessage =
+          err instanceof Error ? err.message : "Erro desconhecido";
+        setError(errorMessage);
+        
+        // Adicionar mensagem de erro no chat
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: `Desculpe, ocorreu um erro ao processar sua mensagem: ${errorMessage}`,
+          },
+        ]);
+        
         toast({
-          title: 'Erro',
-          description: message,
-          variant: 'destructive',
+          title: "Erro",
+          description: errorMessage,
+          variant: "destructive",
         });
       } finally {
         setLoading(false);
       }
     },
-    [toast]
+    [toast],
   );
 
   const clearMessages = useCallback(() => {
-    setMessages([]);
+    setMessages([
+      {
+        role: "assistant",
+        content:
+          "Olá! Sou o assistente IA do ConcursIA. Posso te ajudar com dúvidas sobre o ENEM, editais, conteúdos e muito mais. Como posso te ajudar hoje?",
+      },
+    ]);
     setError(null);
   }, []);
 
@@ -234,4 +292,31 @@ export function useChat() {
     sendMessage,
     clearMessages,
   };
+}
+
+/**
+ * Hook para estatísticas do sistema (questões)
+ */
+export function useStats() {
+  const [stats, setStats] = useState<any | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const fetchStats = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await apiClient.getQuestionsStats();
+      setStats(data?.data || data || null);
+      setError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro desconhecido";
+      setError(message);
+      toast({ title: "Erro", description: message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  return { stats, loading, error, fetchStats };
 }

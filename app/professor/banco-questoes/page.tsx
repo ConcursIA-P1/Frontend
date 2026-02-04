@@ -1,14 +1,131 @@
-import { TeacherNav } from "@/components/teacher-nav"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Filter, Plus } from "lucide-react"
+"use client";
+
+import { useEffect, useState } from "react";
+import { TeacherNav } from "@/components/teacher-nav";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Search, Filter, Plus, Loader2 } from "lucide-react";
+import { useQuestions } from "@/hooks/use-api";
+
+function QuestionsList({
+  selectedIds,
+  onToggleSelect,
+}: {
+  selectedIds: string[];
+  onToggleSelect: (id: string) => void;
+}) {
+  const { questions, loading, error, fetchQuestions } = useQuestions();
+
+  // load on mount
+  useEffect(() => {
+    fetchQuestions();
+  }, [fetchQuestions]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) return <div className="text-destructive text-sm">{error}</div>;
+
+  return (
+    <div className="space-y-4">
+      {questions.length === 0 && (
+        <Card>
+          <CardContent className="p-6 text-center text-muted-foreground">
+            Nenhuma questão encontrada. Ajuste os filtros ou adicione questões ao
+            banco.
+          </CardContent>
+        </Card>
+      )}
+      {questions.map((q) => (
+        <Card key={q.id}>
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <Badge>{q.materia || "Geral"}</Badge>
+                  <Badge variant="outline">{q.ano || "—"}</Badge>
+                  <Badge variant="secondary">{q.dificuldade || "—"}</Badge>
+                </div>
+                <h3 className="font-medium mb-2 leading-relaxed">
+                  {q.enunciado}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Tópico: {q.topico || "—"}
+                </p>
+              </div>
+              <Checkbox
+                className="mt-1"
+                checked={selectedIds.includes(q.id)}
+                onCheckedChange={() => onToggleSelect(q.id)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline">
+                Ver Detalhes
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onToggleSelect(q.id)}
+              >
+                {selectedIds.includes(q.id) ? "Remover" : "Adicionar à Prova"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
 
 export default function BancoQuestoesPage() {
+  const { fetchQuestions } = useQuestions();
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Filtros
+  const [materia, setMateria] = useState<string>("");
+  const [ano, setAno] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleApplyFilters = () => {
+    fetchQuestions(
+      materia || undefined,
+      ano ? parseInt(ano) : undefined,
+      undefined,
+      1,
+      20
+    );
+  };
+
+  const handleClearFilters = () => {
+    setMateria("");
+    setAno("");
+    setSearchTerm("");
+    fetchQuestions();
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <TeacherNav />
@@ -16,7 +133,9 @@ export default function BancoQuestoesPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Banco de Questões</h1>
-          <p className="text-muted-foreground">Busque, filtre e gerencie questões do ENEM</p>
+          <p className="text-muted-foreground">
+            Busque, filtre e gerencie questões do ENEM
+          </p>
         </div>
 
         <div className="grid lg:grid-cols-4 gap-6">
@@ -32,31 +151,28 @@ export default function BancoQuestoesPage() {
 
               <div className="space-y-2">
                 <Label>Matéria</Label>
-                <Select>
+                <Select value={materia} onValueChange={setMateria}>
                   <SelectTrigger>
                     <SelectValue placeholder="Todas" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="todas">Todas</SelectItem>
+                    <SelectItem value="">Todas</SelectItem>
                     <SelectItem value="matematica">Matemática</SelectItem>
-                    <SelectItem value="portugues">Português</SelectItem>
-                    <SelectItem value="fisica">Física</SelectItem>
-                    <SelectItem value="quimica">Química</SelectItem>
-                    <SelectItem value="biologia">Biologia</SelectItem>
-                    <SelectItem value="historia">História</SelectItem>
-                    <SelectItem value="geografia">Geografia</SelectItem>
+                    <SelectItem value="linguagens">Linguagens</SelectItem>
+                    <SelectItem value="humanas">Humanas</SelectItem>
+                    <SelectItem value="natureza">Ciências da Natureza</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <Label>Ano</Label>
-                <Select>
+                <Select value={ano} onValueChange={setAno}>
                   <SelectTrigger>
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="">Todos</SelectItem>
                     <SelectItem value="2024">2024</SelectItem>
                     <SelectItem value="2023">2023</SelectItem>
                     <SelectItem value="2022">2022</SelectItem>
@@ -66,47 +182,14 @@ export default function BancoQuestoesPage() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label>Dificuldade</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todas">Todas</SelectItem>
-                    <SelectItem value="facil">Fácil</SelectItem>
-                    <SelectItem value="media">Média</SelectItem>
-                    <SelectItem value="dificil">Difícil</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-3">
-                <Label>Tipo</Label>
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="multipla" />
-                    <label
-                      htmlFor="multipla"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                    >
-                      Múltipla escolha
-                    </label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="dissertativa" />
-                    <label
-                      htmlFor="dissertativa"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                    >
-                      Dissertativa
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <Button className="w-full">Aplicar Filtros</Button>
-              <Button variant="ghost" className="w-full">
+              <Button className="w-full" onClick={handleApplyFilters}>
+                Aplicar Filtros
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full"
+                onClick={handleClearFilters}
+              >
                 Limpar Filtros
               </Button>
             </CardContent>
@@ -117,7 +200,12 @@ export default function BancoQuestoesPage() {
             <div className="flex gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Buscar questões..." className="pl-10" />
+                <Input
+                  placeholder="Buscar questões..."
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
               </div>
               <Button>
                 <Plus className="w-4 h-4 mr-2" />
@@ -126,146 +214,34 @@ export default function BancoQuestoesPage() {
             </div>
 
             <div className="space-y-4">
-              {/* Question Card 1 */}
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Badge>Matemática</Badge>
-                        <Badge variant="outline">2024</Badge>
-                        <Badge variant="secondary">Média</Badge>
-                      </div>
-                      <h3 className="font-medium mb-2 leading-relaxed">
-                        Uma função quadrática f(x) = ax² + bx + c tem como raízes os valores x₁ = 2 e x₂ = 5. Sabendo
-                        que f(0) = 10, qual o valor de a?
-                      </h3>
-                      <p className="text-sm text-muted-foreground">Tópico: Funções Quadráticas • ID: #MAT-2024-045</p>
-                    </div>
-                    <Checkbox className="mt-1" />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline">
-                      Ver Questão
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      Adicionar à Prova
-                    </Button>
-                    <Button size="sm" variant="ghost">
-                      Editar
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Question Card 2 */}
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Badge>Física</Badge>
-                        <Badge variant="outline">2023</Badge>
-                        <Badge variant="secondary">Difícil</Badge>
-                      </div>
-                      <h3 className="font-medium mb-2 leading-relaxed">
-                        Um corpo de massa 2kg é lançado verticalmente para cima com velocidade inicial de 20 m/s.
-                        Desprezando a resistência do ar e considerando g = 10 m/s², qual a altura máxima atingida?
-                      </h3>
-                      <p className="text-sm text-muted-foreground">Tópico: Cinemática • ID: #FIS-2023-128</p>
-                    </div>
-                    <Checkbox className="mt-1" />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline">
-                      Ver Questão
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      Adicionar à Prova
-                    </Button>
-                    <Button size="sm" variant="ghost">
-                      Editar
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Question Card 3 */}
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Badge>História</Badge>
-                        <Badge variant="outline">2024</Badge>
-                        <Badge variant="secondary">Fácil</Badge>
-                      </div>
-                      <h3 className="font-medium mb-2 leading-relaxed">
-                        Qual foi o principal fator que levou ao início da Revolução Industrial na Inglaterra no século
-                        XVIII?
-                      </h3>
-                      <p className="text-sm text-muted-foreground">Tópico: Revolução Industrial • ID: #HIS-2024-032</p>
-                    </div>
-                    <Checkbox className="mt-1" />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline">
-                      Ver Questão
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      Adicionar à Prova
-                    </Button>
-                    <Button size="sm" variant="ghost">
-                      Editar
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Question Card 4 */}
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Badge>Português</Badge>
-                        <Badge variant="outline">2023</Badge>
-                        <Badge variant="secondary">Média</Badge>
-                      </div>
-                      <h3 className="font-medium mb-2 leading-relaxed">
-                        Identifique a função sintática do termo destacado: "Os alunos encontraram o professor
-                        preocupado."
-                      </h3>
-                      <p className="text-sm text-muted-foreground">Tópico: Sintaxe • ID: #POR-2023-087</p>
-                    </div>
-                    <Checkbox className="mt-1" />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline">
-                      Ver Questão
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      Adicionar à Prova
-                    </Button>
-                    <Button size="sm" variant="ghost">
-                      Editar
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <QuestionsList
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelect}
+              />
             </div>
 
             {/* Selected Actions */}
             <Card className="bg-muted/50">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">0 questões selecionadas</span>
+                  <span className="text-sm font-medium">
+                    {selectedIds.length} questões selecionadas
+                  </span>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" disabled>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={selectedIds.length === 0}
+                    >
                       Criar Prova com Selecionadas
                     </Button>
-                    <Button size="sm" variant="ghost" disabled>
-                      Exportar
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={selectedIds.length === 0}
+                      onClick={() => setSelectedIds([])}
+                    >
+                      Limpar Seleção
                     </Button>
                   </div>
                 </div>
@@ -275,5 +251,5 @@ export default function BancoQuestoesPage() {
         </div>
       </main>
     </div>
-  )
+  );
 }

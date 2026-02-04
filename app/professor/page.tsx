@@ -1,11 +1,28 @@
-import { TeacherNav } from "@/components/teacher-nav"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Database, FileText, Plus, TrendingUp, Users, Zap } from "lucide-react"
-import Link from "next/link"
+"use client";
+
+import { useEffect } from "react";
+import { TeacherNav } from "@/components/teacher-nav";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Database, FileText, Plus, TrendingUp, Users, Zap } from "lucide-react";
+import Link from "next/link";
+import { useStats, useSimulados } from "@/hooks/use-api";
 
 export default function ProfessorDashboard() {
+  const { stats, fetchStats } = useStats();
+  const { simulados, fetchSimulados } = useSimulados();
+
+  useEffect(() => {
+    fetchStats();
+    fetchSimulados();
+  }, [fetchStats, fetchSimulados]);
   return (
     <div className="min-h-screen bg-background">
       <TeacherNav />
@@ -13,8 +30,10 @@ export default function ProfessorDashboard() {
       <main className="container mx-auto px-4 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Olá, Prof. Maria!</h1>
-          <p className="text-muted-foreground">Painel de gestão e criação de conteúdo educacional</p>
+          <h1 className="text-3xl font-bold mb-2">Olá, Professor!</h1>
+          <p className="text-muted-foreground">
+            Painel de gestão e criação de conteúdo educacional
+          </p>
         </div>
 
         {/* Quick Stats */}
@@ -22,20 +41,26 @@ export default function ProfessorDashboard() {
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Questões Criadas</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Questões Criadas
+                </CardTitle>
                 <Database className="w-4 h-4 text-muted-foreground" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">142</div>
-              <p className="text-xs text-muted-foreground mt-1">+12 este mês</p>
+              <div className="text-3xl font-bold">{stats?.total ?? "—"}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                questões no banco
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Provas Ativas</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Provas Ativas
+                </CardTitle>
                 <FileText className="w-4 h-4 text-muted-foreground" />
               </div>
             </CardHeader>
@@ -48,7 +73,9 @@ export default function ProfessorDashboard() {
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Alunos Totais</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Alunos Totais
+                </CardTitle>
                 <Users className="w-4 h-4 text-muted-foreground" />
               </div>
             </CardHeader>
@@ -61,7 +88,9 @@ export default function ProfessorDashboard() {
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Média Geral</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Média Geral
+                </CardTitle>
                 <TrendingUp className="w-4 h-4 text-muted-foreground" />
               </div>
             </CardHeader>
@@ -92,8 +121,12 @@ export default function ProfessorDashboard() {
                       <Plus className="w-5 h-5 text-primary-foreground" />
                     </div>
                     <div className="text-left">
-                      <div className="font-semibold text-base">Criar Nova Prova</div>
-                      <div className="text-xs text-muted-foreground">Monte provas com IA</div>
+                      <div className="font-semibold text-base">
+                        Criar Nova Prova
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Monte provas com IA
+                      </div>
                     </div>
                   </Link>
                 </Button>
@@ -108,28 +141,48 @@ export default function ProfessorDashboard() {
                       <Database className="w-5 h-5 text-accent-foreground" />
                     </div>
                     <div className="text-left">
-                      <div className="font-semibold text-base">Banco de Questões</div>
-                      <div className="text-xs text-muted-foreground">Buscar e filtrar questões</div>
+                      <div className="font-semibold text-base">
+                        Banco de Questões
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Buscar e filtrar questões
+                      </div>
                     </div>
                   </Link>
                 </Button>
 
-                <Button variant="outline" className="h-auto p-6 flex flex-col items-start gap-3 bg-transparent" asChild>
+                <Button
+                  variant="outline"
+                  className="h-auto p-6 flex flex-col items-start gap-3 bg-transparent"
+                  asChild
+                >
                   <Link href="/professor/criar-prova?ia=true">
                     <Zap className="w-5 h-5 text-primary" />
                     <div className="text-left">
-                      <div className="font-semibold text-base">Gerador IA de Provas</div>
-                      <div className="text-xs text-muted-foreground">Crie provas automaticamente</div>
+                      <div className="font-semibold text-base">
+                        Gerador IA de Provas
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Crie provas automaticamente
+                      </div>
                     </div>
                   </Link>
                 </Button>
 
-                <Button variant="outline" className="h-auto p-6 flex flex-col items-start gap-3 bg-transparent" asChild>
+                <Button
+                  variant="outline"
+                  className="h-auto p-6 flex flex-col items-start gap-3 bg-transparent"
+                  asChild
+                >
                   <Link href="/professor/turmas">
                     <Users className="w-5 h-5 text-primary" />
                     <div className="text-left">
-                      <div className="font-semibold text-base">Gerenciar Turmas</div>
-                      <div className="text-xs text-muted-foreground">Acompanhe seus alunos</div>
+                      <div className="font-semibold text-base">
+                        Gerenciar Turmas
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Acompanhe seus alunos
+                      </div>
                     </div>
                   </Link>
                 </Button>
@@ -140,7 +193,9 @@ export default function ProfessorDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle>Provas Recentes</CardTitle>
-                <CardDescription>Últimas provas criadas e aplicadas</CardDescription>
+                <CardDescription>
+                  Últimas provas criadas e aplicadas
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-start justify-between p-4 rounded-lg border border-border">
@@ -149,8 +204,12 @@ export default function ProfessorDashboard() {
                       <FileText className="w-6 h-6 text-primary" />
                     </div>
                     <div>
-                      <h3 className="font-medium mb-1">Prova de Matemática - Funções</h3>
-                      <p className="text-sm text-muted-foreground mb-2">Turma 3A • 25 questões</p>
+                      <h3 className="font-medium mb-1">
+                        Prova de Matemática - Funções
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Turma 3A • 25 questões
+                      </p>
                       <div className="flex gap-2">
                         <Badge variant="secondary">Aplicada</Badge>
                         <Badge variant="outline">78% média</Badge>
@@ -168,8 +227,12 @@ export default function ProfessorDashboard() {
                       <FileText className="w-6 h-6 text-primary" />
                     </div>
                     <div>
-                      <h3 className="font-medium mb-1">Simulado ENEM - Geral</h3>
-                      <p className="text-sm text-muted-foreground mb-2">Turma 3B • 45 questões</p>
+                      <h3 className="font-medium mb-1">
+                        Simulado ENEM - Geral
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Turma 3B • 45 questões
+                      </p>
                       <div className="flex gap-2">
                         <Badge>Em andamento</Badge>
                         <Badge variant="outline">23/30 enviados</Badge>
@@ -187,8 +250,12 @@ export default function ProfessorDashboard() {
                       <FileText className="w-6 h-6 text-primary" />
                     </div>
                     <div>
-                      <h3 className="font-medium mb-1">Lista de Exercícios - Física</h3>
-                      <p className="text-sm text-muted-foreground mb-2">Turma 2A • 15 questões</p>
+                      <h3 className="font-medium mb-1">
+                        Lista de Exercícios - Física
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Turma 2A • 15 questões
+                      </p>
                       <div className="flex gap-2">
                         <Badge variant="outline">Rascunho</Badge>
                       </div>
@@ -213,7 +280,9 @@ export default function ProfessorDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="font-medium">Turma 3A</div>
-                    <div className="text-sm text-muted-foreground">28 alunos</div>
+                    <div className="text-sm text-muted-foreground">
+                      28 alunos
+                    </div>
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold text-primary">82%</div>
@@ -223,7 +292,9 @@ export default function ProfessorDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="font-medium">Turma 3B</div>
-                    <div className="text-sm text-muted-foreground">32 alunos</div>
+                    <div className="text-sm text-muted-foreground">
+                      32 alunos
+                    </div>
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold text-primary">75%</div>
@@ -233,7 +304,9 @@ export default function ProfessorDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="font-medium">Turma 2A</div>
-                    <div className="text-sm text-muted-foreground">27 alunos</div>
+                    <div className="text-sm text-muted-foreground">
+                      27 alunos
+                    </div>
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold text-primary">68%</div>
@@ -258,9 +331,14 @@ export default function ProfessorDashboard() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Use o gerador de provas IA para criar avaliações balanceadas baseadas no desempenho das suas turmas
+                  Use o gerador de provas IA para criar avaliações balanceadas
+                  baseadas no desempenho das suas turmas
                 </p>
-                <Button size="sm" variant="outline" className="w-full bg-background">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full bg-background"
+                >
                   Experimentar
                 </Button>
               </CardContent>
@@ -273,15 +351,21 @@ export default function ProfessorDashboard() {
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Provas aplicadas</span>
+                  <span className="text-muted-foreground">
+                    Provas aplicadas
+                  </span>
                   <span className="font-medium">12</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Questões criadas</span>
+                  <span className="text-muted-foreground">
+                    Questões criadas
+                  </span>
                   <span className="font-medium">28</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Tempo economizado</span>
+                  <span className="text-muted-foreground">
+                    Tempo economizado
+                  </span>
                   <span className="font-medium text-primary">18h</span>
                 </div>
               </CardContent>
@@ -290,5 +374,5 @@ export default function ProfessorDashboard() {
         </div>
       </main>
     </div>
-  )
+  );
 }

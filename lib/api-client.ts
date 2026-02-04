@@ -4,7 +4,8 @@
  */
 
 // URL base da API - mudar conforme ambiente
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
 // Tipos de respostas da API
 export interface ApiResponse<T = unknown> {
@@ -15,17 +16,29 @@ export interface ApiResponse<T = unknown> {
 }
 
 // Tipos de questões
+export interface Alternativa {
+  letra: string;
+  texto: string;
+}
+
 export interface Question {
   id: string;
   enunciado: string;
-  opcoes: string[];
-  resposta_correta: string;
-  explicacao: string;
+  alternativas: Alternativa[]; // Backend usa "alternativas", não "opcoes"
+  gabarito: string; // Backend usa "gabarito", não "resposta_correta"
+  explicacao?: string;
   ano: number;
-  materia: string;
-  topico: string;
-  dificuldade: string;
+  materia?: string;
+  topico?: string;
+  subtopico?: string;
+  dificuldade?: string;
+  banca?: string;
+  prova?: string;
+  numero_questao?: number;
   imagem_url?: string;
+  tags?: string[];
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Tipos de simulados
@@ -40,13 +53,12 @@ export interface Simulado {
 
 // Tipos de chat/RAG
 export interface ChatRequest {
-  mensagem: string;
-  contexto?: string;
+  message: string; // Backend espera "message", não "mensagem"
 }
 
 export interface ChatResponse {
-  resposta: string;
-  referencias?: string[];
+  answer: string; // Backend retorna "answer", não "resposta"
+  sources?: string[]; // Backend retorna "sources", não "referencias"
 }
 
 // Classe do cliente API
@@ -62,15 +74,15 @@ class ApiClient {
    */
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     try {
       const response = await fetch(url, {
         ...options,
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           ...options.headers,
         },
       });
@@ -79,7 +91,9 @@ class ApiClient {
         const error = await response.json().catch(() => ({
           message: response.statusText,
         }));
-        throw new Error(error.message || `Erro na requisição: ${response.status}`);
+        throw new Error(
+          error.message || `Erro na requisição: ${response.status}`,
+        );
       }
 
       return await response.json();
@@ -103,15 +117,15 @@ class ApiClient {
     materia?: string,
     ano?: number,
     topico?: string,
-    pagina: number = 1,
-    limite: number = 20
-  ): Promise<ApiResponse<Question[]>> {
+    page: number = 1,
+    page_size: number = 20,
+  ): Promise<any> {
     const params = new URLSearchParams();
-    if (materia) params.append('materia', materia);
-    if (ano) params.append('ano', ano.toString());
-    if (topico) params.append('topico', topico);
-    params.append('pagina', pagina.toString());
-    params.append('limite', limite.toString());
+    if (materia) params.append("materia", materia);
+    if (ano) params.append("ano", ano.toString());
+    if (topico) params.append("topico", topico);
+    params.append("page", page.toString());
+    params.append("page_size", page_size.toString());
 
     return this.request(`/questions?${params.toString()}`);
   }
@@ -121,30 +135,50 @@ class ApiClient {
     quantidade: number = 10,
     materia?: string,
     ano?: number,
-    topico?: string
+    topico?: string,
   ): Promise<Question[]> {
     const params = new URLSearchParams();
-    params.append('quantidade', quantidade.toString());
-    if (materia) params.append('materia', materia);
-    if (ano) params.append('ano', ano.toString());
-    if (topico) params.append('topico', topico);
+    params.append("quantidade", quantidade.toString());
+    if (materia) params.append("materia", materia);
+    if (ano) params.append("ano", ano.toString());
+    if (topico) params.append("topico", topico);
 
     return this.request(`/questions/random?${params.toString()}`);
   }
 
+  // Obter matérias disponíveis
+  async getMaterias(): Promise<string[]> {
+    return this.request("/questions/materias");
+  }
+
+  // Obter tópicos disponíveis
+  async getTopicos(materia?: string): Promise<string[]> {
+    const params = new URLSearchParams();
+    if (materia) params.append("materia", materia);
+    return this.request(`/questions/topicos?${params.toString()}`);
+  }
+
   // Obter estatísticas de questões
   async getQuestionsStats(): Promise<ApiResponse> {
-    return this.request('/questions/stats');
+    return this.request("/questions/stats");
   }
 
   /**
    * ENDPOINTS DE SIMULADOS
    */
 
-  // Criar novo simulado
-  async createSimulado(data: Simulado): Promise<Simulado> {
-    return this.request('/simulados', {
-      method: 'POST',
+  // Gerar simulado personalizado
+  async generateSimulado(data: any): Promise<any> {
+    return this.request("/simulados/generate", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Gerar simulado rápido
+  async generateQuickSimulado(data: any): Promise<any> {
+    return this.request("/simulados/quick", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   }
@@ -154,23 +188,31 @@ class ApiClient {
     return this.request(`/simulados/${id}`);
   }
 
-  // Listar simulados do usuário
-  async listSimulados(userId: string): Promise<Simulado[]> {
-    return this.request(`/simulados?usuario_id=${userId}`);
+  // Listar simulados (paginação opcional)
+  async listSimulados(
+    page: number = 1,
+    page_size: number = 20,
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    params.append("page", page.toString());
+    params.append("page_size", page_size.toString());
+    return this.request(`/simulados?${params.toString()}`);
   }
 
-  // Atualizar simulado
-  async updateSimulado(id: string, data: Partial<Simulado>): Promise<Simulado> {
-    return this.request(`/simulados/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
+  // Obter questões de um simulado
+  async getSimuladoQuestions(id: string): Promise<Question[]> {
+    return this.request(`/simulados/${id}/questions`);
+  }
+
+  // Obter estatísticas de um simulado
+  async getSimuladoStats(id: string): Promise<any> {
+    return this.request(`/simulados/${id}/stats`);
   }
 
   // Deletar simulado
   async deleteSimulado(id: string): Promise<ApiResponse> {
     return this.request(`/simulados/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
     });
   }
 
@@ -179,14 +221,18 @@ class ApiClient {
    */
 
   // Enviar mensagem ao chatbot
-  async sendChatMessage(message: string, contexto?: string): Promise<ChatResponse> {
-    return this.request('/chat', {
-      method: 'POST',
+  async sendChatMessage(message: string): Promise<ChatResponse> {
+    return this.request("/chat", {
+      method: "POST",
       body: JSON.stringify({
-        mensagem: message,
-        contexto: contexto,
+        message: message, // Backend espera "message"
       }),
     });
+  }
+
+  // Obter informações do RAG
+  async getRagInfo(): Promise<any> {
+    return this.request("/chat/info");
   }
 
   /**
@@ -195,7 +241,7 @@ class ApiClient {
 
   // Verificar saúde da API
   async healthCheck(): Promise<ApiResponse> {
-    return this.request('/health');
+    return this.request("/health");
   }
 }
 
