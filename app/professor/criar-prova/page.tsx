@@ -21,6 +21,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { FileText, Plus, Sparkles, Trash2, Loader2 } from "lucide-react";
 import { useQuestions, useSimulados } from "@/hooks/use-api";
 import { useToast } from "@/hooks/use-toast";
@@ -56,11 +63,7 @@ function QuestionsInProva({
                 {q.enunciado}
               </p>
             </div>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => onRemove(q.id)}
-            >
+            <Button size="icon" variant="ghost" onClick={() => onRemove(q.id)}>
               <Trash2 className="w-4 h-4 text-destructive" />
             </Button>
           </div>
@@ -84,6 +87,7 @@ export default function CriarProvaPage() {
   const [titulo, setTitulo] = useState("");
   const [questionsInProva, setQuestionsInProva] = useState<Question[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   // Estado do gerador IA
   const [iaMateria, setIaMateria] = useState("");
@@ -120,15 +124,27 @@ export default function CriarProvaPage() {
         materias: [iaMateria],
       });
 
-      if (result && result.questions) {
-        setQuestionsInProva(result.questions);
+      const questions = result?.simulado?.questions ?? [];
+      if (questions.length > 0) {
+        setQuestionsInProva(questions);
         toast({
           title: "Questões geradas!",
-          description: `${result.questions.length} questões foram adicionadas à prova`,
+          description: `${questions.length} questões foram adicionadas à prova`,
+        });
+      } else if (result?.simulado) {
+        toast({
+          title: "Aviso",
+          description: "Nenhuma questão encontrada para os filtros selecionados",
+          variant: "destructive",
         });
       }
-    } catch (error) {
-      // Erro já tratado no hook
+    } catch (err) {
+      toast({
+        title: "Erro",
+        description:
+          err instanceof Error ? err.message : "Não foi possível gerar questões",
+        variant: "destructive",
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -137,12 +153,20 @@ export default function CriarProvaPage() {
   const handleAddRandomQuestions = async () => {
     try {
       const randomQuestions = await fetchRandomQuestions(5);
-      setQuestionsInProva((prev) => [...prev, ...randomQuestions]);
-      toast({
-        title: "Questões adicionadas!",
-        description: `${randomQuestions.length} questões aleatórias foram adicionadas`,
-      });
-    } catch (error) {
+      if (randomQuestions.length > 0) {
+        setQuestionsInProva((prev) => [...prev, ...randomQuestions]);
+        toast({
+          title: "Questões adicionadas!",
+          description: `${randomQuestions.length} questões aleatórias foram adicionadas`,
+        });
+      } else {
+        toast({
+          title: "Aviso",
+          description: "Nenhuma questão encontrada no banco",
+          variant: "destructive",
+        });
+      }
+    } catch {
       toast({
         title: "Erro",
         description: "Não foi possível buscar questões aleatórias",
@@ -160,8 +184,28 @@ export default function CriarProvaPage() {
       acc[mat] = (acc[mat] || 0) + 1;
       return acc;
     },
-    {} as Record<string, number>
+    {} as Record<string, number>,
   );
+
+  const handleSaveProva = () => {
+    if (!titulo || questionsInProva.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Informe um título e adicione questões antes de salvar",
+        variant: "destructive",
+      });
+      return;
+    }
+    const saved = JSON.parse(localStorage.getItem("saved_provas") || "[]");
+    saved.push({
+      id: crypto.randomUUID(),
+      titulo,
+      created_at: new Date().toISOString(),
+      questions: questionsInProva,
+    });
+    localStorage.setItem("saved_provas", JSON.stringify(saved));
+    toast({ title: "Sucesso", description: "Prova salva localmente!" });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -255,11 +299,17 @@ export default function CriarProvaPage() {
                 size="lg"
                 className="flex-1"
                 disabled={questionsInProva.length === 0 || !titulo}
+                onClick={handleSaveProva}
               >
                 <FileText className="w-4 h-4 mr-2" />
                 Salvar Prova
               </Button>
-              <Button size="lg" variant="outline">
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => setPreviewOpen(true)}
+                disabled={questionsInProva.length === 0}
+              >
                 Visualizar
               </Button>
             </div>
@@ -378,6 +428,34 @@ export default function CriarProvaPage() {
           </div>
         </div>
       </main>
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{titulo || "Pré-visualização da Prova"}</DialogTitle>
+            <DialogDescription>
+              {questionsInProva.length} questões
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {questionsInProva.map((q, idx) => (
+              <div key={q.id} className="border rounded-lg p-4">
+                <div className="text-sm font-medium mb-2">
+                  Questão {idx + 1}
+                </div>
+                <p className="text-sm mb-3">{q.enunciado}</p>
+                <div className="space-y-1">
+                  {q.alternativas?.map((alt) => (
+                    <div key={alt.letra} className="text-sm text-muted-foreground">
+                      <span className="font-mono mr-2">{alt.letra}.</span>
+                      {alt.texto}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

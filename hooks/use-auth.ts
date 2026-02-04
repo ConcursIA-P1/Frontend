@@ -97,7 +97,13 @@ export function useAuth() {
         console.log("Resposta do servidor:", data);
 
         if (!response.ok) {
-          throw new Error(data.detail || "Erro ao registrar usuário");
+          const detail = data.detail;
+          const msg = Array.isArray(detail)
+            ? detail.map((d: { msg?: string }) => d.msg).join(", ")
+            : typeof detail === "string"
+              ? detail
+              : "Erro ao registrar usuário";
+          throw new Error(msg);
         }
 
         if (data.success && data.token && data.user) {
@@ -147,7 +153,13 @@ export function useAuth() {
         console.log("Resposta do servidor:", data);
 
         if (!response.ok) {
-          throw new Error(data.detail || "Erro ao fazer login");
+          const detail = data.detail;
+          const msg = Array.isArray(detail)
+            ? detail.map((d: { msg?: string }) => d.msg).join(", ")
+            : typeof detail === "string"
+              ? detail
+              : "Erro ao fazer login";
+          throw new Error(msg);
         }
 
         if (data.success && data.token && data.user) {

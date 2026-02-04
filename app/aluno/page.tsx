@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { StudentNav } from "@/components/student-nav";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,13 +23,19 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useStats } from "@/hooks/use-api";
+import { loadStudentStats, StudentStats } from "@/lib/student-stats";
 
 export default function AlunoDashboard() {
   const { stats, fetchStats } = useStats();
+  const [studentStats, setStudentStats] = useState<StudentStats | null>(null);
 
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
+
+  useEffect(() => {
+    setStudentStats(loadStudentStats());
+  }, []);
   return (
     <div className="min-h-screen bg-background">
       <StudentNav />
@@ -69,9 +75,11 @@ export default function AlunoDashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{stats?.total ?? "—"}</div>
+              <div className="text-3xl font-bold">
+                {studentStats?.totalRespondidas ?? 0}
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
-                dados do banco de questões
+                respondidas em simulados
               </p>
             </CardContent>
           </Card>
@@ -86,8 +94,18 @@ export default function AlunoDashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">72%</div>
-              <p className="text-xs text-primary mt-1">↑ 5% do mês passado</p>
+              <div className="text-3xl font-bold">
+                {studentStats && studentStats.totalRespondidas > 0
+                  ? Math.round(
+                      (studentStats.totalAcertos / studentStats.totalRespondidas) *
+                        100
+                    )
+                  : 0}
+                %
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                desempenho geral em simulados
+              </p>
             </CardContent>
           </Card>
 
@@ -137,7 +155,9 @@ export default function AlunoDashboard() {
                       </span>
                     </div>
                   </div>
-                  <Button size="sm">Continuar</Button>
+                  <Button size="sm" asChild>
+                    <Link href="/aluno/simulados">Continuar</Link>
+                  </Button>
                 </div>
 
                 <div className="flex items-start gap-4 p-4 rounded-lg border border-border">
@@ -151,8 +171,8 @@ export default function AlunoDashboard() {
                     </p>
                     <Badge variant="secondary">Não iniciado</Badge>
                   </div>
-                  <Button size="sm" variant="outline">
-                    Iniciar
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href="/aluno/assistente">Iniciar</Link>
                   </Button>
                 </div>
 
@@ -167,8 +187,8 @@ export default function AlunoDashboard() {
                     </p>
                     <Badge variant="secondary">Agendado 15:00</Badge>
                   </div>
-                  <Button size="sm" variant="outline">
-                    Ver
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href="/aluno/simulados">Ver</Link>
                   </Button>
                 </div>
               </CardContent>
@@ -225,34 +245,29 @@ export default function AlunoDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Matemática</span>
-                    <span className="text-sm text-muted-foreground">78%</span>
+                {studentStats && Object.keys(studentStats.porMateria).length > 0 ? (
+                  Object.entries(studentStats.porMateria).map(([mat, data]) => {
+                    const percent =
+                      data.respondidas > 0
+                        ? Math.round((data.acertos / data.respondidas) * 100)
+                        : 0;
+                    return (
+                      <div key={mat}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">{mat}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {percent}%
+                          </span>
+                        </div>
+                        <Progress value={percent} />
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    Responda um simulado para ver seu desempenho por matéria.
                   </div>
-                  <Progress value={78} />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Português</span>
-                    <span className="text-sm text-muted-foreground">85%</span>
-                  </div>
-                  <Progress value={85} />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">História</span>
-                    <span className="text-sm text-muted-foreground">68%</span>
-                  </div>
-                  <Progress value={68} />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Física</span>
-                    <span className="text-sm text-muted-foreground">71%</span>
-                  </div>
-                  <Progress value={71} />
-                </div>
+                )}
                 <Button variant="link" className="w-full" asChild>
                   <Link href="/aluno/desempenho">Ver relatório completo →</Link>
                 </Button>
@@ -265,15 +280,23 @@ export default function AlunoDashboard() {
                 <CardTitle className="text-base">Atividade Recente</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex gap-3">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
-                    <Target className="w-4 h-4 text-primary" />
+                {studentStats?.historico?.[0] ? (
+                  <div className="flex gap-3">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+                      <Target className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Completou simulado</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(studentStats.historico[0].data).toLocaleDateString()}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Completou simulado</p>
-                    <p className="text-xs text-muted-foreground">Há 2 horas</p>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    Nenhum simulado realizado ainda.
                   </div>
-                </div>
+                )}
                 <div className="flex gap-3">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
                     <BookOpen className="w-4 h-4 text-primary" />

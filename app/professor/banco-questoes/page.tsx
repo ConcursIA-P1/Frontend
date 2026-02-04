@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -15,22 +16,41 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Search, Filter, Plus, Loader2 } from "lucide-react";
 import { useQuestions } from "@/hooks/use-api";
+import { apiClient } from "@/lib/api-client";
+import { useToast } from "@/hooks/use-toast";
+import { Question } from "@/lib/api-client";
 
 function QuestionsList({
+  questions,
+  loading,
+  error,
+  searchTerm,
   selectedIds,
   onToggleSelect,
 }: {
+  questions: Question[];
+  loading: boolean;
+  error: string | null;
+  searchTerm: string;
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
 }) {
-  const { questions, loading, error, fetchQuestions } = useQuestions();
-
-  // load on mount
-  useEffect(() => {
-    fetchQuestions();
-  }, [fetchQuestions]);
+  const filtered = searchTerm.trim()
+    ? questions.filter((q) =>
+        q.enunciado?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : questions;
 
   if (loading) {
     return (
@@ -44,7 +64,7 @@ function QuestionsList({
 
   return (
     <div className="space-y-4">
-      {questions.length === 0 && (
+      {filtered.length === 0 && (
         <Card>
           <CardContent className="p-6 text-center text-muted-foreground">
             Nenhuma questão encontrada. Ajuste os filtros ou adicione questões ao
@@ -52,7 +72,7 @@ function QuestionsList({
           </CardContent>
         </Card>
       )}
-      {questions.map((q) => (
+      {filtered.map((q) => (
         <Card key={q.id}>
           <CardContent className="p-6">
             <div className="flex items-start justify-between mb-4">
@@ -95,13 +115,75 @@ function QuestionsList({
 }
 
 export default function BancoQuestoesPage() {
-  const { fetchQuestions } = useQuestions();
+  const { questions, loading, error, fetchQuestions } = useQuestions();
+  const { toast } = useToast();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  // Form nova questão
+  const [enunciado, setEnunciado] = useState("");
+  const [altA, setAltA] = useState("");
+  const [altB, setAltB] = useState("");
+  const [altC, setAltC] = useState("");
+  const [altD, setAltD] = useState("");
+  const [gabarito, setGabarito] = useState("A");
+  const [anoQuestao, setAnoQuestao] = useState("2024");
+  const [materiaQuestao, setMateriaQuestao] = useState("matematica");
 
   // Filtros
-  const [materia, setMateria] = useState<string>("");
-  const [ano, setAno] = useState<string>("");
+  const [materia, setMateria] = useState<string>("todas");
+  const [ano, setAno] = useState<string>("todos");
   const [searchTerm, setSearchTerm] = useState<string>("");
+
+  useEffect(() => {
+    const materiaFilter = materia === "todas" ? undefined : materia;
+    const anoFilter = ano === "todos" ? undefined : parseInt(ano);
+    fetchQuestions(materiaFilter, anoFilter);
+  }, [materia, ano, fetchQuestions]);
+
+  const handleCreateQuestion = async () => {
+    const alts = [
+      { letra: "A", texto: altA },
+      { letra: "B", texto: altB },
+      { letra: "C", texto: altC },
+      { letra: "D", texto: altD },
+    ].filter((a) => a.texto.trim());
+    if (enunciado.length < 10 || alts.length < 2 || !gabarito) {
+      toast({
+        title: "Erro",
+        description: "Preencha enunciado (mín. 10 chars) e pelo menos 2 alternativas",
+        variant: "destructive",
+      });
+      return;
+    }
+    setCreating(true);
+    try {
+      await apiClient.createQuestion({
+        enunciado: enunciado.trim(),
+        alternativas: alts,
+        gabarito,
+        ano: parseInt(anoQuestao),
+        materia: materiaQuestao,
+      });
+      toast({ title: "Sucesso", description: "Questão criada!" });
+      setDialogOpen(false);
+      setEnunciado("");
+      setAltA("");
+      setAltB("");
+      setAltC("");
+      setAltD("");
+      fetchQuestions();
+    } catch (err) {
+      toast({
+        title: "Erro",
+        description: err instanceof Error ? err.message : "Erro ao criar questão",
+        variant: "destructive",
+      });
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) =>
@@ -110,18 +192,14 @@ export default function BancoQuestoesPage() {
   };
 
   const handleApplyFilters = () => {
-    fetchQuestions(
-      materia || undefined,
-      ano ? parseInt(ano) : undefined,
-      undefined,
-      1,
-      20
-    );
+    const materiaFilter = materia === "todas" ? undefined : materia;
+    const anoFilter = ano === "todos" ? undefined : parseInt(ano);
+    fetchQuestions(materiaFilter, anoFilter, undefined, 1, 20);
   };
 
   const handleClearFilters = () => {
-    setMateria("");
-    setAno("");
+    setMateria("todas");
+    setAno("todos");
     setSearchTerm("");
     fetchQuestions();
   };
@@ -156,7 +234,7 @@ export default function BancoQuestoesPage() {
                     <SelectValue placeholder="Todas" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas</SelectItem>
+                    <SelectItem value="todas">Todas</SelectItem>
                     <SelectItem value="matematica">Matemática</SelectItem>
                     <SelectItem value="linguagens">Linguagens</SelectItem>
                     <SelectItem value="humanas">Humanas</SelectItem>
@@ -172,7 +250,7 @@ export default function BancoQuestoesPage() {
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos</SelectItem>
+                    <SelectItem value="todos">Todos</SelectItem>
                     <SelectItem value="2024">2024</SelectItem>
                     <SelectItem value="2023">2023</SelectItem>
                     <SelectItem value="2022">2022</SelectItem>
@@ -207,14 +285,132 @@ export default function BancoQuestoesPage() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Nova Questão
-              </Button>
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Nova Questão
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Nova Questão</DialogTitle>
+                    <DialogDescription>Adicione uma questão ao banco</DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div>
+                      <Label>Enunciado</Label>
+                      <Textarea
+                        placeholder="Texto da questão..."
+                        value={enunciado}
+                        onChange={(e) => setEnunciado(e.target.value)}
+                        rows={4}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Matéria</Label>
+                        <Select value={materiaQuestao} onValueChange={setMateriaQuestao}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="matematica">Matemática</SelectItem>
+                            <SelectItem value="linguagens">Linguagens</SelectItem>
+                            <SelectItem value="humanas">Humanas</SelectItem>
+                            <SelectItem value="natureza">Natureza</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Ano</Label>
+                        <Input
+                          type="number"
+                          value={anoQuestao}
+                          onChange={(e) => setAnoQuestao(e.target.value)}
+                          min={1990}
+                          max={2030}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Alternativas</Label>
+                      <div className="grid gap-2">
+                        <div className="flex gap-2 items-center">
+                          <span className="w-6 font-mono">A</span>
+                          <Input
+                            placeholder="Alternativa A"
+                            value={altA}
+                            onChange={(e) => setAltA(e.target.value)}
+                          />
+                        </div>
+                        <div className="flex gap-2 items-center">
+                          <span className="w-6 font-mono">B</span>
+                          <Input
+                            placeholder="Alternativa B"
+                            value={altB}
+                            onChange={(e) => setAltB(e.target.value)}
+                          />
+                        </div>
+                        <div className="flex gap-2 items-center">
+                          <span className="w-6 font-mono">C</span>
+                          <Input
+                            placeholder="Alternativa C"
+                            value={altC}
+                            onChange={(e) => setAltC(e.target.value)}
+                          />
+                        </div>
+                        <div className="flex gap-2 items-center">
+                          <span className="w-6 font-mono">D</span>
+                          <Input
+                            placeholder="Alternativa D"
+                            value={altD}
+                            onChange={(e) => setAltD(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Gabarito</Label>
+                      <Select value={gabarito} onValueChange={setGabarito}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="A">A</SelectItem>
+                          <SelectItem value="B">B</SelectItem>
+                          <SelectItem value="C">C</SelectItem>
+                          <SelectItem value="D">D</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleCreateQuestion} disabled={creating}>
+                      {creating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Criando...
+                        </>
+                      ) : (
+                        "Criar"
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
 
             <div className="space-y-4">
               <QuestionsList
+                questions={questions}
+                loading={loading}
+                error={error}
+                searchTerm={searchTerm}
                 selectedIds={selectedIds}
                 onToggleSelect={toggleSelect}
               />

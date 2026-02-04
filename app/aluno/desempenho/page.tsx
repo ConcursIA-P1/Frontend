@@ -20,70 +20,35 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  TrendingUp,
-  TrendingDown,
   Target,
   Award,
   Calendar,
   BarChart3,
   Activity,
 } from "lucide-react";
-import { useStats } from "@/hooks/use-api";
+import Link from "next/link";
+import { loadStudentStats, StudentStats } from "@/lib/student-stats";
 
 export default function DesempenhoPage() {
-  const { stats, loading, fetchStats } = useStats();
   const [periodo, setPeriodo] = useState("30dias");
+  const [studentStats, setStudentStats] = useState<StudentStats | null>(null);
 
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    setStudentStats(loadStudentStats());
+  }, []);
 
-  // Dados mockados para demonstração (posteriormente virão do backend)
-  const desempenhoPorMateria = [
-    { materia: "Matemática", acertos: 78, total: 100, tendencia: "up" },
-    { materia: "Linguagens", acertos: 85, total: 100, tendencia: "up" },
-    { materia: "Humanas", acertos: 68, total: 100, tendencia: "down" },
-    { materia: "Ciências da Natureza", acertos: 71, total: 100, tendencia: "up" },
-  ];
-
-  const historicoSimulados = [
-    {
-      id: "1",
-      titulo: "Simulado ENEM - Matemática",
-      data: "2024-01-28",
-      acertos: 18,
-      total: 25,
-      tempo: "45 min",
-    },
-    {
-      id: "2",
-      titulo: "Simulado Completo - Todas Matérias",
-      data: "2024-01-25",
-      acertos: 68,
-      total: 90,
-      tempo: "180 min",
-    },
-    {
-      id: "3",
-      titulo: "Simulado - Linguagens",
-      data: "2024-01-22",
-      acertos: 22,
-      total: 30,
-      tempo: "60 min",
-    },
-  ];
-
-  const pontosFracos = [
-    { topico: "Funções Quadráticas", materia: "Matemática", acertos: 45 },
-    { topico: "Física Moderna", materia: "Ciências da Natureza", acertos: 52 },
-    { topico: "Brasil Império", materia: "Humanas", acertos: 58 },
-  ];
-
-  const pontosFortes = [
-    { topico: "Interpretação de Texto", materia: "Linguagens", acertos: 92 },
-    { topico: "Geometria Plana", materia: "Matemática", acertos: 88 },
-    { topico: "Química Orgânica", materia: "Ciências da Natureza", acertos: 85 },
-  ];
+  const historicoSimulados = studentStats?.historico ?? [];
+  const materiaPerf = Object.entries(studentStats?.porMateria ?? {}).map(
+    ([materia, data]) => ({
+      materia,
+      percent:
+        data.respondidas > 0
+          ? Math.round((data.acertos / data.respondidas) * 100)
+          : 0,
+    })
+  );
+  const pontosFortes = [...materiaPerf].sort((a, b) => b.percent - a.percent).slice(0, 3);
+  const pontosFracos = [...materiaPerf].sort((a, b) => a.percent - b.percent).slice(0, 3);
 
   return (
     <div className="min-h-screen bg-background">
@@ -116,17 +81,18 @@ export default function DesempenhoPage() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Taxa de Acerto Geral
+                  Simulados Completos
                 </CardTitle>
                 <Target className="w-4 h-4 text-muted-foreground" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">75.5%</div>
-              <div className="flex items-center gap-1 text-xs text-green-600 mt-1">
-                <TrendingUp className="w-3 h-3" />
-                +5.2% do período anterior
+              <div className="text-3xl font-bold">
+                {studentStats?.totalSimulados ?? 0}
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                simulados finalizados
+              </p>
             </CardContent>
           </Card>
 
@@ -134,17 +100,17 @@ export default function DesempenhoPage() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Questões Resolvidas
+                  Questões Respondidas
                 </CardTitle>
                 <Activity className="w-4 h-4 text-muted-foreground" />
               </div>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">
-                {stats?.total || "—"}
+                {studentStats?.totalRespondidas ?? 0}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Total no banco de questões
+                total em simulados
               </p>
             </CardContent>
           </Card>
@@ -153,15 +119,23 @@ export default function DesempenhoPage() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Simulados Completos
+                  Taxa de Acerto
                 </CardTitle>
                 <Award className="w-4 h-4 text-muted-foreground" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">12</div>
+              <div className="text-3xl font-bold">
+                {studentStats && studentStats.totalRespondidas > 0
+                  ? Math.round(
+                      (studentStats.totalAcertos / studentStats.totalRespondidas) *
+                        100
+                    )
+                  : 0}
+                %
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Média: 72% de acerto
+                desempenho geral
               </p>
             </CardContent>
           </Card>
@@ -170,15 +144,19 @@ export default function DesempenhoPage() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Horas de Estudo
+                  Último Simulado
                 </CardTitle>
                 <Calendar className="w-4 h-4 text-muted-foreground" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">42h</div>
+              <div className="text-3xl font-bold">
+                {historicoSimulados[0]
+                  ? new Date(historicoSimulados[0].data).toLocaleDateString()
+                  : "—"}
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Este mês
+                data do último simulado
               </p>
             </CardContent>
           </Card>
@@ -199,27 +177,30 @@ export default function DesempenhoPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {desempenhoPorMateria.map((item) => (
-                  <div key={item.materia}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{item.materia}</span>
-                        {item.tendencia === "up" ? (
-                          <TrendingUp className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <TrendingDown className="w-4 h-4 text-red-600" />
-                        )}
-                      </div>
-                      <span className="text-sm text-muted-foreground">
-                        {item.acertos}/{item.total} ({Math.round((item.acertos / item.total) * 100)}%)
-                      </span>
-                    </div>
-                    <Progress
-                      value={(item.acertos / item.total) * 100}
-                      className="h-2"
-                    />
+                {studentStats === null ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Carregando estatísticas...
                   </div>
-                ))}
+                ) : materiaPerf.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Responda um simulado para ver seu desempenho
+                  </div>
+                ) : (
+                  materiaPerf.map((item) => (
+                    <div key={item.materia}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium">{item.materia}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {item.percent}%
+                        </span>
+                      </div>
+                      <Progress
+                        value={item.percent}
+                        className="h-2"
+                      />
+                    </div>
+                  ))
+                )}
               </CardContent>
             </Card>
 
@@ -232,7 +213,12 @@ export default function DesempenhoPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {historicoSimulados.map((simulado) => {
+                {historicoSimulados.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    Nenhum simulado realizado ainda.
+                  </div>
+                ) : (
+                  historicoSimulados.map((simulado) => {
                   const percentual = Math.round(
                     (simulado.acertos / simulado.total) * 100
                   );
@@ -248,7 +234,7 @@ export default function DesempenhoPage() {
                             <Calendar className="w-3 h-3" />
                             {new Date(simulado.data).toLocaleDateString()}
                           </span>
-                          <span>{simulado.tempo}</span>
+                          {simulado.tempo && <span>{simulado.tempo}</span>}
                         </div>
                       </div>
                       <div className="text-right">
@@ -261,9 +247,10 @@ export default function DesempenhoPage() {
                       </div>
                     </div>
                   );
-                })}
-                <Button variant="outline" className="w-full">
-                  Ver Todos os Simulados
+                
+                }))}
+                <Button variant="outline" className="w-full" asChild>
+                  <Link href="/aluno/simulados">Ver Todos os Simulados</Link>
                 </Button>
               </CardContent>
             </Card>
@@ -281,19 +268,24 @@ export default function DesempenhoPage() {
                 <CardDescription>Continue assim!</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {pontosFortes.map((item, idx) => (
+                {pontosFortes.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    Sem dados ainda.
+                  </div>
+                ) : (
+                  pontosFortes.map((item, idx) => (
                   <div key={idx} className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{item.topico}</span>
+                      <span className="text-sm font-medium">{item.materia}</span>
                       <Badge variant="secondary" className="text-green-600">
-                        {item.acertos}%
+                        {item.percent}%
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {item.materia}
+                      Melhor desempenho
                     </p>
                   </div>
-                ))}
+                )))}
               </CardContent>
             </Card>
 
@@ -307,22 +299,27 @@ export default function DesempenhoPage() {
                 <CardDescription>Foque seus estudos aqui</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {pontosFracos.map((item, idx) => (
+                {pontosFracos.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    Sem dados ainda.
+                  </div>
+                ) : (
+                  pontosFracos.map((item, idx) => (
                   <div key={idx} className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{item.topico}</span>
+                      <span className="text-sm font-medium">{item.materia}</span>
                       <Badge variant="secondary" className="text-orange-600">
-                        {item.acertos}%
+                        {item.percent}%
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mb-2">
-                      {item.materia}
+                      Precisa reforçar
                     </p>
-                    <Button variant="outline" size="sm" className="w-full">
-                      Praticar Mais
+                    <Button variant="outline" size="sm" className="w-full" asChild>
+                      <Link href="/aluno/simulados">Praticar Mais</Link>
                     </Button>
                   </div>
-                ))}
+                )))}
               </CardContent>
             </Card>
 

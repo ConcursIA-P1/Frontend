@@ -112,6 +112,21 @@ class ApiClient {
     return this.request(`/questions/${id}`);
   }
 
+  // Criar nova questão
+  async createQuestion(data: {
+    enunciado: string;
+    alternativas: { letra: string; texto: string }[];
+    gabarito: string;
+    ano: number;
+    materia?: string;
+    topico?: string;
+  }): Promise<Question> {
+    return this.request("/questions/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
   // Listar questões com filtros
   async listQuestions(
     materia?: string,

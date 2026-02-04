@@ -20,12 +20,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Calendar, FileText, Target, Loader2 } from "lucide-react";
 import { useSimulados } from "@/hooks/use-api";
 import { useToast } from "@/hooks/use-toast";
+import { apiClient, Question, Simulado } from "@/lib/api-client";
+import Link from "next/link";
 
 function SimuladosList() {
   const { simulados, loading, error, fetchSimulados } = useSimulados();
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [selectedSimulado, setSelectedSimulado] = useState<Simulado | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchSimulados();
@@ -40,6 +53,24 @@ function SimuladosList() {
   }
 
   if (error) return <div className="text-destructive text-sm">{error}</div>;
+
+  const openDetails = async (id: string) => {
+    try {
+      setDetailsLoading(true);
+      const simulado = await apiClient.getSimuladoById(id);
+      setSelectedSimulado(simulado);
+      setDetailsOpen(true);
+    } catch (err) {
+      toast({
+        title: "Erro",
+        description:
+          err instanceof Error ? err.message : "Não foi possível carregar o simulado",
+        variant: "destructive",
+      });
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -71,11 +102,19 @@ function SimuladosList() {
                     </span>
                   </div>
                   <div className="flex gap-2 mt-2 flex-wrap">
-                    {s.questoes_por_materia && Object.entries(s.questoes_por_materia).map(([materia, qtd]) => (
-                      <Badge key={materia} variant="secondary">
-                        {materia}: {qtd}
-                      </Badge>
-                    ))}
+                    {s.questoes_por_materia
+                      ? Object.entries(s.questoes_por_materia).map(
+                          ([materia, qtd]) => (
+                            <Badge key={materia} variant="secondary">
+                              {materia}: {qtd}
+                            </Badge>
+                          )
+                        )
+                      : (
+                        <Badge variant="secondary">
+                          {s.total_questoes ?? s.questoes?.length ?? 0} questões
+                        </Badge>
+                      )}
                   </div>
                 </div>
               </div>
@@ -85,16 +124,58 @@ function SimuladosList() {
               </div>
             </div>
             <div className="flex gap-2">
-              <Button variant="default" size="sm">
-                Iniciar Simulado
+              <Button
+                variant="default"
+                size="sm"
+                asChild
+                disabled={detailsLoading}
+              >
+                <Link href={`/aluno/simulados/${s.id}`}>
+                  {detailsLoading ? "Carregando..." : "Iniciar Simulado"}
+                </Link>
               </Button>
-              <Button variant="outline" size="sm">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openDetails(s.id)}
+                disabled={detailsLoading}
+              >
                 Ver Detalhes
               </Button>
             </div>
           </CardContent>
         </Card>
       ))}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedSimulado?.titulo || "Simulado"}</DialogTitle>
+            <DialogDescription>
+              {selectedSimulado?.total_questoes ?? 0} questões
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {(selectedSimulado?.questions || []).map((q: Question, idx: number) => (
+              <Card key={q.id}>
+                <CardContent className="p-4">
+                  <div className="text-sm font-medium mb-2">
+                    Questão {idx + 1}
+                  </div>
+                  <p className="text-sm mb-3">{q.enunciado}</p>
+                  <div className="space-y-1">
+                    {q.alternativas?.map((alt) => (
+                      <div key={alt.letra} className="text-sm text-muted-foreground">
+                        <span className="font-mono mr-2">{alt.letra}.</span>
+                        {alt.texto}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -137,7 +218,12 @@ export default function SimuladosPage() {
         await fetchSimulados();
       }
     } catch (error) {
-      // Erro já tratado no hook
+      toast({
+        title: "Erro",
+        description:
+          error instanceof Error ? error.message : "Não foi possível gerar simulado",
+        variant: "destructive",
+      });
     } finally {
       setIsGenerating(false);
     }

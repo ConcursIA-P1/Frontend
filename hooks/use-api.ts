@@ -26,13 +26,14 @@ export function useQuestions() {
       try {
         setLoading(true);
         const response = await apiClient.listQuestions(
-          materia,
+          materia || undefined,
           ano,
           topico,
           page,
           page_size,
         );
-        setQuestions(response.items || response.data || []);
+        const list = response?.items ?? response?.data ?? [];
+        setQuestions(list);
         setError(null);
       } catch (err) {
         const message =
@@ -56,7 +57,7 @@ export function useQuestions() {
       materia?: string,
       ano?: number,
       topico?: string,
-    ) => {
+    ): Promise<Question[]> => {
       try {
         setLoading(true);
         const data = await apiClient.getRandomQuestions(
@@ -65,8 +66,10 @@ export function useQuestions() {
           ano,
           topico,
         );
-        setQuestions(data);
+        const list = Array.isArray(data) ? data : data?.items || [];
+        setQuestions(list);
         setError(null);
+        return list;
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Erro desconhecido";
@@ -76,6 +79,7 @@ export function useQuestions() {
           description: message,
           variant: "destructive",
         });
+        return [];
       } finally {
         setLoading(false);
       }
@@ -131,7 +135,7 @@ export function useSimulados() {
         const result = await apiClient.generateSimulado(data);
         toast({
           title: "Sucesso",
-          description: `Simulado gerado com ${result.simulado.total_questoes} questões`,
+          description: `Simulado gerado com ${result?.simulado?.total_questoes ?? 0} questões`,
         });
         return result;
       } catch (err) {
@@ -143,6 +147,7 @@ export function useSimulados() {
           description: message,
           variant: "destructive",
         });
+        throw err;
       } finally {
         setLoading(false);
       }
@@ -155,10 +160,6 @@ export function useSimulados() {
       try {
         setLoading(true);
         const result = await apiClient.generateQuickSimulado(data);
-        toast({
-          title: "Sucesso",
-          description: `Simulado rápido gerado com ${result.simulado.total_questoes} questões`,
-        });
         return result;
       } catch (err) {
         const message =
@@ -169,6 +170,7 @@ export function useSimulados() {
           description: message,
           variant: "destructive",
         });
+        throw err;
       } finally {
         setLoading(false);
       }
