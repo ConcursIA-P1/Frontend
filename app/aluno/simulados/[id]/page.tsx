@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -7,10 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { apiClient, Question, Simulado } from "@/lib/api-client";
-import { addSimuladoResult } from "@/lib/student-stats";
-import { Loader2, ChevronLeft, ChevronRight, CheckCircle } from "lucide-react";
+import { apiClient, Simulado } from "@/lib/api-client";
+import { Loader2, ChevronLeft, ChevronRight, CheckCircle, BookOpen, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 
+// Tipo para mapear as respostas (ID da questão -> Letra da alternativa)
 type AnswerMap = Record<string, string>;
 
 export default function SimuladoExecucaoPage() {
@@ -33,7 +35,7 @@ export default function SimuladoExecucaoPage() {
         const data = await apiClient.getSimuladoById(simuladoId);
         if (active) setSimulado(data);
       } catch {
-        // Se falhar, volta para lista
+        toast.error("Erro ao carregar simulado.");
         router.push("/aluno/simulados");
       } finally {
         if (active) setLoading(false);
@@ -45,9 +47,9 @@ export default function SimuladoExecucaoPage() {
     };
   }, [simuladoId, router]);
 
-  const questions = simulado?.questions || [];
+  const questions = simulado?.questoes || []; // Ajustado para 'questoes' conforme a interface atual
   const total = questions.length;
-  const current = questions[currentIndex];
+  const currentQuestion = questions[currentIndex];
 
   const answeredCount = useMemo(
     () => Object.keys(answers).length,
@@ -62,31 +64,29 @@ export default function SimuladoExecucaoPage() {
     }, 0);
   }, [answers, finished, questions]);
 
-  const handleSelect = (question: Question, letra: string) => {
-    setAnswers((prev) => ({ ...prev, [question.id]: letra }));
+  const handleSelect = (questionId: string, letra: string) => {
+    if (finished) return;
+    setAnswers((prev) => ({ ...prev, [questionId]: letra }));
   };
 
   const handleFinish = () => {
-    const finalScore = questions.reduce((acc, q) => {
-      const selected = answers[q.id];
-      return acc + (selected === q.gabarito ? 1 : 0);
-    }, 0);
-    const perMateria: Record<string, { acertos: number; total: number }> = {};
-    questions.forEach((q) => {
-      const materia = q.materia || "geral";
-      if (!perMateria[materia]) perMateria[materia] = { acertos: 0, total: 0 };
-      perMateria[materia].total += 1;
-      if (answers[q.id] === q.gabarito) perMateria[materia].acertos += 1;
-    });
-    addSimuladoResult({
-      simuladoId: simulado.id,
-      titulo: simulado.titulo || "Simulado",
-      acertos: finalScore,
-      total,
-      porMateria: perMateria,
-    });
+    if (answeredCount < total) {
+      if (!confirm("Ainda existem questões não respondidas. Deseja finalizar mesmo assim?")) {
+        return;
+      }
+    }
     setFinished(true);
+    toast.success("Simulado finalizado!");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const getDifficultyColor = (difficulty?: string) => {
+    switch (difficulty?.toLowerCase()) {
+      case "facil": return "bg-green-100 text-green-800 hover:bg-green-100 border-green-200";
+      case "medio": return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-yellow-200";
+      case "dificil": return "bg-red-100 text-red-800 hover:bg-red-100 border-red-200";
+      default: return "bg-secondary text-secondary-foreground hover:bg-secondary/80";
+    }
   };
 
   if (loading) {
@@ -94,7 +94,7 @@ export default function SimuladoExecucaoPage() {
       <div className="min-h-screen bg-background">
         <StudentNav />
         <main className="container mx-auto px-4 py-8 flex items-center justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </main>
       </div>
     );
@@ -105,9 +105,13 @@ export default function SimuladoExecucaoPage() {
       <div className="min-h-screen bg-background">
         <StudentNav />
         <main className="container mx-auto px-4 py-8">
-          <Card>
-            <CardContent className="p-6 text-center text-muted-foreground">
-              Simulado não encontrado ou sem questões.
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground gap-2">
+              <AlertCircle className="w-8 h-8" />
+              <p>Simulado não encontrado ou sem questões disponíveis.</p>
+              <Button variant="link" onClick={() => router.push("/aluno/simulados")}>
+                Voltar para lista
+              </Button>
             </CardContent>
           </Card>
         </main>
@@ -116,104 +120,221 @@ export default function SimuladoExecucaoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20">
       <StudentNav />
 
-      <main className="container mx-auto px-4 py-8 space-y-6">
-        <div className="flex items-center justify-between gap-4">
+      <main className="container mx-auto px-4 py-8 space-y-6 max-w-4xl">
+        {/* Header do Simulado */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">{simulado.titulo || "Simulado"}</h1>
             <p className="text-sm text-muted-foreground">
-              {answeredCount}/{total} respondidas
+              Questão {currentIndex + 1} de {total}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">{total} questões</Badge>
-            {finished && (
-              <Badge className="bg-green-600 text-white">
-                {score}/{total} acertos
+          
+          <div className="flex items-center gap-3">
+            {finished ? (
+              <Badge className="bg-primary text-primary-foreground px-3 py-1 text-base">
+                Nota: {score}/{total} ({Math.round((score/total)*100)}%)
               </Badge>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full">
+                <span className="font-mono font-medium text-foreground">{answeredCount}</span> respondidas
+              </div>
             )}
           </div>
         </div>
 
-        <Progress value={(answeredCount / total) * 100} />
+        <Progress value={((currentIndex + 1) / total) * 100} className="h-2" />
 
         {finished && (
-          <Card className="border-green-600/30 bg-green-600/10">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                Resultado
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              Você acertou <strong>{score}</strong> de <strong>{total}</strong>{" "}
-              questões.
+          <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-900">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="p-3 bg-green-100 dark:bg-green-800 rounded-full">
+                <CheckCircle className="w-6 h-6 text-green-700 dark:text-green-300" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-green-900 dark:text-green-100">Simulado Concluído!</h3>
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  Você acertou <strong>{score}</strong> questões. Revise as respostas abaixo.
+                </p>
+              </div>
             </CardContent>
           </Card>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Questão {currentIndex + 1}</CardTitle>
+        {/* Cartão da Questão */}
+        <Card className="shadow-md border-muted">
+          <CardHeader className="bg-muted/30 pb-4">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-start justify-between gap-4">
+                <Badge variant="outline" className="font-mono text-xs uppercase tracking-wider">
+                  Questão {currentIndex + 1}
+                </Badge>
+                
+                <div className="flex flex-wrap gap-2 justify-end">
+                  {currentQuestion.materia && (
+                    <Badge variant="secondary" className="font-medium">
+                      {currentQuestion.materia}
+                    </Badge>
+                  )}
+                  {currentQuestion.dificuldade && (
+                    <Badge className={`${getDifficultyColor(currentQuestion.dificuldade)} border`}>
+                      {currentQuestion.dificuldade}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Metadados Extras */}
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground border-t border-border/50 pt-3">
+                {currentQuestion.banca && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-foreground">Banca:</span>
+                    <span>{currentQuestion.banca}</span>
+                  </div>
+                )}
+                {currentQuestion.ano && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-foreground">Ano:</span>
+                    <span>{currentQuestion.ano}</span>
+                  </div>
+                )}
+                {currentQuestion.prova && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-foreground">Prova:</span>
+                    <span className="truncate max-w-[200px]" title={currentQuestion.prova}>
+                      {currentQuestion.prova}
+                    </span>
+                  </div>
+                )}
+                 {currentQuestion.topico && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-foreground">Tópico:</span>
+                    <span>{currentQuestion.topico}</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-sm leading-relaxed">{current.enunciado}</div>
-            <div className="space-y-2">
-              {current.alternativas?.map((alt) => {
-                const selected = answers[current.id] === alt.letra;
-                const correct = finished && current.gabarito === alt.letra;
-                const wrong =
-                  finished && selected && current.gabarito !== alt.letra;
+
+          <CardContent className="p-6 space-y-8">
+            {/* Enunciado */}
+            <div className="prose prose-slate dark:prose-invert max-w-none">
+              <p className="text-base md:text-lg leading-relaxed whitespace-pre-wrap font-medium text-foreground/90">
+                {currentQuestion.enunciado}
+              </p>
+            </div>
+
+            {/* Alternativas */}
+            <div className="grid gap-3">
+              {currentQuestion.alternativas.map((alt) => {
+                const isSelected = answers[currentQuestion.id] === alt.letra;
+                const isCorrect = finished && currentQuestion.gabarito === alt.letra;
+                const isWrong = finished && isSelected && currentQuestion.gabarito !== alt.letra;
+                
+                let containerClass = "border-border hover:bg-accent hover:border-accent-foreground/30";
+                if (isSelected && !finished) containerClass = "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20";
+                if (isCorrect) containerClass = "border-green-500 bg-green-50 dark:bg-green-900/20 ring-1 ring-green-500/50";
+                if (isWrong) containerClass = "border-red-500 bg-red-50 dark:bg-red-900/20 ring-1 ring-red-500/50";
+
                 return (
                   <button
                     key={alt.letra}
-                    type="button"
-                    className={`w-full text-left border rounded-lg px-3 py-2 text-sm transition-colors ${
-                      selected ? "border-primary bg-primary/10" : "border-border"
-                    } ${correct ? "border-green-600 bg-green-600/10" : ""} ${
-                      wrong ? "border-red-600 bg-red-600/10" : ""
-                    }`}
-                    onClick={() => handleSelect(current, alt.letra)}
+                    onClick={() => handleSelect(currentQuestion.id, alt.letra)}
                     disabled={finished}
+                    className={`
+                      relative w-full text-left p-4 rounded-xl border transition-all duration-200
+                      flex items-start gap-4 group
+                      ${containerClass}
+                      ${finished ? "cursor-default" : "cursor-pointer"}
+                    `}
                   >
-                    <span className="font-mono mr-2">{alt.letra}.</span>
-                    {alt.texto}
+                    <div className={`
+                      flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold shrink-0 transition-colors
+                      ${isSelected || isCorrect ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-accent-foreground/10"}
+                      ${isCorrect ? "!bg-green-600 !text-white" : ""}
+                      ${isWrong ? "!bg-red-600 !text-white" : ""}
+                    `}>
+                      {alt.letra}
+                    </div>
+                    <span className={`text-sm md:text-base pt-1 ${finished && isCorrect ? "font-medium text-green-700 dark:text-green-300" : ""}`}>
+                      {alt.texto}
+                    </span>
+                    
+                    {isCorrect && <CheckCircle className="absolute right-4 top-4 w-5 h-5 text-green-600" />}
                   </button>
                 );
               })}
             </div>
+
+            {/* Explicação (Visível apenas ao finalizar) */}
+            {finished && (currentQuestion.explicacao || currentQuestion.gabarito) && (
+              <div className="mt-8 animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden">
+                  <div className="bg-muted/50 px-4 py-3 border-b flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-primary" />
+                    <h4 className="font-semibold text-sm">Gabarito e Comentários</h4>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground">Resposta Correta:</span>
+                      <Badge variant="outline" className="font-bold border-green-500 text-green-600 bg-green-50">
+                        Alternativa {currentQuestion.gabarito}
+                      </Badge>
+                    </div>
+                    {currentQuestion.explicacao ? (
+                      <div className="text-sm text-muted-foreground leading-relaxed bg-muted/30 p-3 rounded-md border border-dashed">
+                        {currentQuestion.explicacao}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">
+                        Sem comentários adicionais registrados para esta questão.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        <div className="flex items-center justify-between">
+        {/* Navegação */}
+        <div className="flex items-center justify-between pt-4">
           <Button
             variant="outline"
             onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
             disabled={currentIndex === 0}
+            className="w-32"
           >
             <ChevronLeft className="w-4 h-4 mr-2" />
             Anterior
           </Button>
-          <div className="flex items-center gap-2">
+
+          <div className="flex gap-3">
             {!finished && (
-              <Button
-                variant="outline"
+              <Button 
+                variant="secondary" 
                 onClick={handleFinish}
-                disabled={answeredCount < total}
+                className="hidden sm:flex"
               >
-                Finalizar
+                Entregar Simulado
               </Button>
             )}
+            
             <Button
-              onClick={() =>
-                setCurrentIndex((i) => Math.min(total - 1, i + 1))
-              }
-              disabled={currentIndex === total - 1}
+              onClick={() => {
+                if (currentIndex === total - 1) {
+                  if (!finished) handleFinish();
+                } else {
+                  setCurrentIndex((i) => Math.min(total - 1, i + 1));
+                }
+              }}
+              className="w-32"
             >
-              Próxima
-              <ChevronRight className="w-4 h-4 ml-2" />
+              {currentIndex === total - 1 ? (finished ? "Concluir" : "Finalizar") : "Próxima"}
+              {currentIndex < total - 1 && <ChevronRight className="w-4 h-4 ml-2" />}
             </Button>
           </div>
         </div>

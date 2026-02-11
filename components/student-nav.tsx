@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { BookOpen, Home, MessageSquare, Target, TrendingUp, User, LogOut } from "lucide-react"
+import { BookOpen, Home, MessageSquare, Target, TrendingUp, User, LogOut, Users } from "lucide-react"
 import { Button } from "./ui/button"
 import {
   DropdownMenu,
@@ -30,6 +30,7 @@ export function StudentNav() {
 
   const navItems = [
     { href: "/aluno", icon: Home, label: "Início" },
+    { href: "/aluno/turmas", icon: Users, label: "Turmas" },
     { href: "/aluno/assistente", icon: MessageSquare, label: "Assistente IA" },
     { href: "/aluno/simulados", icon: Target, label: "Simulados" },
     { href: "/aluno/desempenho", icon: TrendingUp, label: "Desempenho" },

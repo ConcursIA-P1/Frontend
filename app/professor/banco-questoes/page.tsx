@@ -1,6 +1,4 @@
-"use client";
-
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { TeacherNav } from "@/components/teacher-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,437 +12,402 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Search, Filter, Plus, Loader2 } from "lucide-react";
-import { useQuestions } from "@/hooks/use-api";
-import { apiClient } from "@/lib/api-client";
-import { useToast } from "@/hooks/use-toast";
-import { Question } from "@/lib/api-client";
+import { Badge } from "@/components/ui/badge";
+import { Trash2, Plus, Search, Filter, Loader2, RefreshCcw } from "lucide-react";
+import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { apiClient, Question, Alternativa } from "@/lib/api-client";
 
-function QuestionsList({
-  questions,
-  loading,
-  error,
-  searchTerm,
-  selectedIds,
-  onToggleSelect,
-}: {
-  questions: Question[];
-  loading: boolean;
-  error: string | null;
-  searchTerm: string;
-  selectedIds: string[];
-  onToggleSelect: (id: string) => void;
-}) {
-  const filtered = searchTerm.trim()
-    ? questions.filter((q) =>
-        q.enunciado?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : questions;
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (error) return <div className="text-destructive text-sm">{error}</div>;
-
-  return (
-    <div className="space-y-4">
-      {filtered.length === 0 && (
-        <Card>
-          <CardContent className="p-6 text-center text-muted-foreground">
-            Nenhuma questão encontrada. Ajuste os filtros ou adicione questões ao
-            banco.
-          </CardContent>
-        </Card>
-      )}
-      {filtered.map((q) => (
-        <Card key={q.id}>
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-3">
-                  <Badge>{q.materia || "Geral"}</Badge>
-                  <Badge variant="outline">{q.ano || "—"}</Badge>
-                  <Badge variant="secondary">{q.dificuldade || "—"}</Badge>
-                </div>
-                <h3 className="font-medium mb-2 leading-relaxed">
-                  {q.enunciado}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Tópico: {q.topico || "—"}
-                </p>
-              </div>
-              <Checkbox
-                className="mt-1"
-                checked={selectedIds.includes(q.id)}
-                onCheckedChange={() => onToggleSelect(q.id)}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline">
-                Ver Detalhes
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onToggleSelect(q.id)}
-              >
-                {selectedIds.includes(q.id) ? "Remover" : "Adicionar à Prova"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-}
+// Constantes
+const INITIAL_ALTERNATIVES: Alternativa[] = [
+  { letra: "A", texto: "" },
+  { letra: "B", texto: "" },
+  { letra: "C", texto: "" },
+  { letra: "D", texto: "" },
+  { letra: "E", texto: "" },
+];
 
 export default function BancoQuestoesPage() {
-  const { questions, loading, error, fetchQuestions } = useQuestions();
-  const { toast } = useToast();
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterMateria, setFilterMateria] = useState("Todas");
 
-  // Form nova questão
+  // Form States
   const [enunciado, setEnunciado] = useState("");
-  const [altA, setAltA] = useState("");
-  const [altB, setAltB] = useState("");
-  const [altC, setAltC] = useState("");
-  const [altD, setAltD] = useState("");
-  const [gabarito, setGabarito] = useState("A");
-  const [anoQuestao, setAnoQuestao] = useState("2024");
-  const [materiaQuestao, setMateriaQuestao] = useState("matematica");
+  const [explicacao, setExplicacao] = useState("");
+  const [ano, setAno] = useState<string>(new Date().getFullYear().toString());
+  const [materia, setMateria] = useState("");
+  const [topico, setTopico] = useState("");
+  const [dificuldade, setDificuldade] = useState<"Facil" | "Medio" | "Dificil">("Medio");
+  const [banca, setBanca] = useState("");
+  const [prova, setProva] = useState("");
+  const [alternativas, setAlternativas] = useState<Alternativa[]>(JSON.parse(JSON.stringify(INITIAL_ALTERNATIVES)));
+  const [gabarito, setGabarito] = useState("");
 
-  // Filtros
-  const [materia, setMateria] = useState<string>("todas");
-  const [ano, setAno] = useState<string>("todos");
-  const [searchTerm, setSearchTerm] = useState<string>("");
+  const loadQuestions = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const data = await apiClient.listQuestions(
+        filterMateria !== "Todas" ? filterMateria : undefined,
+        undefined, // ano
+        searchTerm || undefined // topico/busca
+      );
+      setQuestions(data.items);
+    } catch (error) {
+      toast.error("Erro ao carregar questões. Verifique se o backend está rodando.");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [filterMateria, searchTerm]);
 
   useEffect(() => {
-    const materiaFilter = materia === "todas" ? undefined : materia;
-    const anoFilter = ano === "todos" ? undefined : parseInt(ano);
-    fetchQuestions(materiaFilter, anoFilter);
-  }, [materia, ano, fetchQuestions]);
+    // Debounce para evitar muitas requisições na busca
+    const timer = setTimeout(() => {
+      loadQuestions();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [loadQuestions]);
 
-  const handleCreateQuestion = async () => {
-    const alts = [
-      { letra: "A", texto: altA },
-      { letra: "B", texto: altB },
-      { letra: "C", texto: altC },
-      { letra: "D", texto: altD },
-    ].filter((a) => a.texto.trim());
-    if (enunciado.length < 10 || alts.length < 2 || !gabarito) {
-      toast({
-        title: "Erro",
-        description: "Preencha enunciado (mín. 10 chars) e pelo menos 2 alternativas",
-        variant: "destructive",
-      });
+  const resetForm = () => {
+    setEnunciado("");
+    setExplicacao("");
+    setAno(new Date().getFullYear().toString());
+    setMateria("");
+    setTopico("");
+    setDificuldade("Medio");
+    setBanca("");
+    setProva("");
+    setAlternativas(JSON.parse(JSON.stringify(INITIAL_ALTERNATIVES)));
+    setGabarito("");
+  };
+
+  const handleAlternativeChange = (index: number, text: string) => {
+    const newAlternatives = [...alternativas];
+    newAlternatives[index].texto = text;
+    setAlternativas(newAlternatives);
+  };
+
+  const handleCreate = async () => {
+    if (!enunciado.trim()) {
+      toast.error("O enunciado é obrigatório.");
       return;
     }
-    setCreating(true);
+    if (!materia.trim()) {
+      toast.error("A matéria é obrigatória.");
+      return;
+    }
+    if (!gabarito) {
+      toast.error("Selecione a alternativa correta (gabarito).");
+      return;
+    }
+    
+    const hasEmptyAlternative = alternativas.some(a => !a.texto.trim());
+    if (hasEmptyAlternative) {
+      toast.error("Preencha todas as 5 alternativas.");
+      return;
+    }
+
     try {
+      setIsSaving(true);
       await apiClient.createQuestion({
         enunciado: enunciado.trim(),
-        alternativas: alts,
+        alternativas,
         gabarito,
-        ano: parseInt(anoQuestao),
-        materia: materiaQuestao,
+        ano: parseInt(ano),
+        materia: materia.trim(),
+        topico: topico.trim(),
+        dificuldade,
+        banca: banca.trim(),
+        prova: prova.trim(),
+        explicacao: explicacao.trim(),
       });
-      toast({ title: "Sucesso", description: "Questão criada!" });
-      setDialogOpen(false);
-      setEnunciado("");
-      setAltA("");
-      setAltB("");
-      setAltC("");
-      setAltD("");
-      fetchQuestions();
-    } catch (err) {
-      toast({
-        title: "Erro",
-        description: err instanceof Error ? err.message : "Erro ao criar questão",
-        variant: "destructive",
-      });
+
+      toast.success("Questão criada com sucesso!");
+      setIsDialogOpen(false);
+      resetForm();
+      loadQuestions(); // Recarrega a lista
+    } catch (error) {
+      toast.error("Erro ao salvar questão. Verifique os dados.");
+      console.error(error);
     } finally {
-      setCreating(false);
+      setIsSaving(false);
     }
   };
 
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
-  };
-
-  const handleApplyFilters = () => {
-    const materiaFilter = materia === "todas" ? undefined : materia;
-    const anoFilter = ano === "todos" ? undefined : parseInt(ano);
-    fetchQuestions(materiaFilter, anoFilter, undefined, 1, 20);
-  };
-
-  const handleClearFilters = () => {
-    setMateria("todas");
-    setAno("todos");
-    setSearchTerm("");
-    fetchQuestions();
+  const handleRemove = async (id: string) => {
+    if (!confirm("Tem certeza que deseja remover esta questão?")) return;
+    
+    try {
+      await apiClient.deleteQuestion(id);
+      setQuestions(prev => prev.filter(q => q.id !== id));
+      toast.info("Questão removida.");
+    } catch (error) {
+      toast.error("Erro ao remover questão.");
+    }
   };
 
   return (
     <div className="min-h-screen bg-background">
       <TeacherNav />
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Banco de Questões</h1>
-          <p className="text-muted-foreground">
-            Busque, filtre e gerencie questões do ENEM
-          </p>
-        </div>
-
-        <div className="grid lg:grid-cols-4 gap-6">
-          {/* Filters Sidebar */}
-          <Card className="lg:col-span-1 h-fit">
-            <CardContent className="p-6 space-y-6">
-              <div>
-                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <Filter className="w-4 h-4" />
-                  Filtros
-                </h3>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Matéria</Label>
-                <Select value={materia} onValueChange={setMateria}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todas">Todas</SelectItem>
-                    <SelectItem value="matematica">Matemática</SelectItem>
-                    <SelectItem value="linguagens">Linguagens</SelectItem>
-                    <SelectItem value="humanas">Humanas</SelectItem>
-                    <SelectItem value="natureza">Ciências da Natureza</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Ano</Label>
-                <Select value={ano} onValueChange={setAno}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos</SelectItem>
-                    <SelectItem value="2024">2024</SelectItem>
-                    <SelectItem value="2023">2023</SelectItem>
-                    <SelectItem value="2022">2022</SelectItem>
-                    <SelectItem value="2021">2021</SelectItem>
-                    <SelectItem value="2020">2020</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button className="w-full" onClick={handleApplyFilters}>
-                Aplicar Filtros
+      <main className="container mx-auto px-4 py-8 space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Banco de Questões</h1>
+            <p className="text-muted-foreground">
+              Gerencie suas questões, crie novos itens e organize por matéria.
+            </p>
+          </div>
+          
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="w-4 h-4 mr-2" />
+                Nova Questão
               </Button>
-              <Button
-                variant="ghost"
-                className="w-full"
-                onClick={handleClearFilters}
-              >
-                Limpar Filtros
-              </Button>
-            </CardContent>
-          </Card>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Criar Nova Questão</DialogTitle>
+                <DialogDescription>
+                  Preencha todos os detalhes da questão para o banco de dados.
+                </DialogDescription>
+              </DialogHeader>
 
-          {/* Questions List */}
-          <div className="lg:col-span-3 space-y-6">
-            <div className="flex gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar questões..."
-                  className="pl-10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Nova Questão
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Nova Questão</DialogTitle>
-                    <DialogDescription>Adicione uma questão ao banco</DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div>
-                      <Label>Enunciado</Label>
-                      <Textarea
-                        placeholder="Texto da questão..."
-                        value={enunciado}
-                        onChange={(e) => setEnunciado(e.target.value)}
-                        rows={4}
-                        className="mt-1"
-                      />
-                    </div>
+              <div className="grid gap-6 py-4">
+                <Tabs defaultValue="dados" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="dados">Dados Gerais</TabsTrigger>
+                    <TabsTrigger value="conteudo">Enunciado e Alternativas</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="dados" className="space-y-4 mt-4">
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Matéria</Label>
-                        <Select value={materiaQuestao} onValueChange={setMateriaQuestao}>
+                      <div className="space-y-2">
+                        <Label>Matéria *</Label>
+                        <Input 
+                          placeholder="Ex: Matemática" 
+                          value={materia}
+                          onChange={(e) => setMateria(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Tópico</Label>
+                        <Input 
+                          placeholder="Ex: Geometria Plana" 
+                          value={topico}
+                          onChange={(e) => setTopico(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Ano</Label>
+                        <Input 
+                          type="number" 
+                          value={ano}
+                          onChange={(e) => setAno(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Dificuldade</Label>
+                        <Select 
+                          value={dificuldade} 
+                          onValueChange={(v: any) => setDificuldade(v)}
+                        >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="matematica">Matemática</SelectItem>
-                            <SelectItem value="linguagens">Linguagens</SelectItem>
-                            <SelectItem value="humanas">Humanas</SelectItem>
-                            <SelectItem value="natureza">Natureza</SelectItem>
+                            <SelectItem value="Facil">Fácil</SelectItem>
+                            <SelectItem value="Medio">Médio</SelectItem>
+                            <SelectItem value="Dificil">Difícil</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
-                      <div>
-                        <Label>Ano</Label>
-                        <Input
-                          type="number"
-                          value={anoQuestao}
-                          onChange={(e) => setAnoQuestao(e.target.value)}
-                          min={1990}
-                          max={2030}
+                      <div className="space-y-2">
+                        <Label>Banca</Label>
+                        <Input 
+                          placeholder="Ex: CESPE" 
+                          value={banca}
+                          onChange={(e) => setBanca(e.target.value)}
                         />
                       </div>
                     </div>
                     <div className="space-y-2">
+                      <Label>Prova (Opcional)</Label>
+                      <Input 
+                        placeholder="Ex: ENEM 2023 - Caderno Azul" 
+                        value={prova}
+                        onChange={(e) => setProva(e.target.value)}
+                      />
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="conteudo" className="space-y-6 mt-4">
+                    <div className="space-y-2">
+                      <Label>Enunciado da Questão *</Label>
+                      <Textarea 
+                        rows={4} 
+                        placeholder="Digite o enunciado completo..." 
+                        value={enunciado}
+                        onChange={(e) => setEnunciado(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-4">
                       <Label>Alternativas</Label>
-                      <div className="grid gap-2">
-                        <div className="flex gap-2 items-center">
-                          <span className="w-6 font-mono">A</span>
-                          <Input
-                            placeholder="Alternativa A"
-                            value={altA}
-                            onChange={(e) => setAltA(e.target.value)}
+                      {alternativas.map((alt, idx) => (
+                        <div key={alt.letra} className="flex gap-3 items-start">
+                          <div className="flex items-center justify-center w-8 h-10 mt-1 font-bold bg-muted rounded">
+                            {alt.letra}
+                          </div>
+                          <Textarea 
+                            rows={2}
+                            placeholder={`Texto da alternativa ${alt.letra}`}
+                            value={alt.texto}
+                            onChange={(e) => handleAlternativeChange(idx, e.target.value)}
+                            className="flex-1"
                           />
+                          <div className="pt-2">
+                            <input
+                              type="radio"
+                              name="gabarito"
+                              className="w-4 h-4 accent-primary cursor-pointer"
+                              checked={gabarito === alt.letra}
+                              onChange={() => setGabarito(alt.letra)}
+                              title="Marcar como correta"
+                            />
+                          </div>
                         </div>
-                        <div className="flex gap-2 items-center">
-                          <span className="w-6 font-mono">B</span>
-                          <Input
-                            placeholder="Alternativa B"
-                            value={altB}
-                            onChange={(e) => setAltB(e.target.value)}
-                          />
+                      ))}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Explicação / Comentário (Pós-resposta)</Label>
+                      <Textarea 
+                        rows={3} 
+                        placeholder="Explique por que a resposta está correta..." 
+                        value={explicacao}
+                        onChange={(e) => setExplicacao(e.target.value)}
+                      />
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-4">
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleCreate} disabled={isSaving}>
+                  {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Salvar Questão
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-4 bg-card p-4 rounded-lg shadow-sm border">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por enunciado ou tópico..."
+              className="pl-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="w-full sm:w-[200px]">
+            <Select value={filterMateria} onValueChange={setFilterMateria}>
+              <SelectTrigger>
+                <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Matéria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todas">Todas as matérias</SelectItem>
+                <SelectItem value="Matemática">Matemática</SelectItem>
+                <SelectItem value="Linguagens">Linguagens</SelectItem>
+                <SelectItem value="Humanas">Humanas</SelectItem>
+                <SelectItem value="Natureza">Natureza</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button variant="ghost" size="icon" onClick={() => loadQuestions()}>
+            <RefreshCcw className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Questions List */}
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {questions.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground">
+                  <p>Nenhuma questão encontrada.</p>
+                  <Button variant="link" onClick={() => {
+                    setSearchTerm("");
+                    setFilterMateria("Todas");
+                  }}>
+                    Limpar filtros
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              questions.map((q) => (
+                <Card key={q.id}>
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-2 flex-1">
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="outline">{q.materia}</Badge>
+                          <Badge variant="secondary">{q.ano}</Badge>
+                          {q.dificuldade && <Badge className="capitalize">{q.dificuldade}</Badge>}
+                          {q.banca && <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">{q.banca}</Badge>}
                         </div>
-                        <div className="flex gap-2 items-center">
-                          <span className="w-6 font-mono">C</span>
-                          <Input
-                            placeholder="Alternativa C"
-                            value={altC}
-                            onChange={(e) => setAltC(e.target.value)}
-                          />
-                        </div>
-                        <div className="flex gap-2 items-center">
-                          <span className="w-6 font-mono">D</span>
-                          <Input
-                            placeholder="Alternativa D"
-                            value={altD}
-                            onChange={(e) => setAltD(e.target.value)}
-                          />
+                        
+                        <p className="font-medium line-clamp-2">{q.enunciado}</p>
+                        
+                        <div className="text-sm text-muted-foreground">
+                          {q.alternativas.length} alternativas • Gabarito: <span className="font-bold text-primary">{q.gabarito}</span>
+                          {q.topico && <span className="ml-3">• {q.topico}</span>}
                         </div>
                       </div>
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-destructive shrink-0"
+                        onClick={() => handleRemove(q.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <div>
-                      <Label>Gabarito</Label>
-                      <Select value={gabarito} onValueChange={setGabarito}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="A">A</SelectItem>
-                          <SelectItem value="B">B</SelectItem>
-                          <SelectItem value="C">C</SelectItem>
-                          <SelectItem value="D">D</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                      Cancelar
-                    </Button>
-                    <Button onClick={handleCreateQuestion} disabled={creating}>
-                      {creating ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Criando...
-                        </>
-                      ) : (
-                        "Criar"
-                      )}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            <div className="space-y-4">
-              <QuestionsList
-                questions={questions}
-                loading={loading}
-                error={error}
-                searchTerm={searchTerm}
-                selectedIds={selectedIds}
-                onToggleSelect={toggleSelect}
-              />
-            </div>
-
-            {/* Selected Actions */}
-            <Card className="bg-muted/50">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">
-                    {selectedIds.length} questões selecionadas
-                  </span>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={selectedIds.length === 0}
-                    >
-                      Criar Prova com Selecionadas
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={selectedIds.length === 0}
-                      onClick={() => setSelectedIds([])}
-                    >
-                      Limpar Seleção
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
-        </div>
+        )}
       </main>
     </div>
   );

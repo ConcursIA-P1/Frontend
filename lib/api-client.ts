@@ -1,7 +1,4 @@
-/**
- * Cliente API para comunicação com o backend ConcursIA
- * Baseado em Fetch API com tipagem TypeScript
- */
+
 
 // URL base da API - mudar conforme ambiente
 const API_BASE_URL =
@@ -24,8 +21,8 @@ export interface Alternativa {
 export interface Question {
   id: string;
   enunciado: string;
-  alternativas: Alternativa[]; // Backend usa "alternativas", não "opcoes"
-  gabarito: string; // Backend usa "gabarito", não "resposta_correta"
+  alternativas: Alternativa[];
+  gabarito: string;
   explicacao?: string;
   ano: number;
   materia?: string;
@@ -41,6 +38,19 @@ export interface Question {
   updated_at?: string;
 }
 
+export interface QuestionCreateData {
+  enunciado: string;
+  alternativas: Alternativa[];
+  gabarito: string;
+  ano: number;
+  materia?: string;
+  topico?: string;
+  dificuldade?: string;
+  banca?: string;
+  prova?: string;
+  explicacao?: string;
+}
+
 // Tipos de simulados
 export interface Simulado {
   id: string;
@@ -53,12 +63,12 @@ export interface Simulado {
 
 // Tipos de chat/RAG
 export interface ChatRequest {
-  message: string; // Backend espera "message", não "mensagem"
+  message: string;
 }
 
 export interface ChatResponse {
-  answer: string; // Backend retorna "answer", não "resposta"
-  sources?: string[]; // Backend retorna "sources", não "referencias"
+  answer: string;
+  sources?: string[];
 }
 
 // Classe do cliente API
@@ -112,18 +122,18 @@ class ApiClient {
     return this.request(`/questions/${id}`);
   }
 
-  // Criar nova questão
-  async createQuestion(data: {
-    enunciado: string;
-    alternativas: { letra: string; texto: string }[];
-    gabarito: string;
-    ano: number;
-    materia?: string;
-    topico?: string;
-  }): Promise<Question> {
+  // Criar nova questão (Agora suporta todos os campos)
+  async createQuestion(data: QuestionCreateData): Promise<Question> {
     return this.request("/questions/", {
       method: "POST",
       body: JSON.stringify(data),
+    });
+  }
+
+  // Deletar questão
+  async deleteQuestion(id: string): Promise<void> {
+    return this.request(`/questions/${id}`, {
+      method: "DELETE",
     });
   }
 
@@ -134,9 +144,9 @@ class ApiClient {
     topico?: string,
     page: number = 1,
     page_size: number = 20,
-  ): Promise<any> {
+  ): Promise<{ items: Question[]; total: number; pages: number }> {
     const params = new URLSearchParams();
-    if (materia) params.append("materia", materia);
+    if (materia && materia !== "Todas") params.append("materia", materia);
     if (ano) params.append("ano", ano.toString());
     if (topico) params.append("topico", topico);
     params.append("page", page.toString());
