@@ -1,22 +1,17 @@
-"use client"
+"use client";
 
-import { StudentNav } from "@/components/student-nav"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Bot, Send, User } from "lucide-react"
-import { useState } from "react"
+import { StudentNav } from "@/components/student-nav";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Bot, Send, User } from "lucide-react";
+import { useState } from "react";
+import { useChat } from "@/hooks/use-api";
 
 export default function AssistentePage() {
-  const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      content:
-        "Olá! Sou seu assistente especializado em ENEM. Posso ajudá-lo com dúvidas sobre editais, conteúdos e datas. Como posso ajudar?",
-    },
-  ])
-  const [input, setInput] = useState("")
+  const { messages, loading, error, sendMessage } = useChat();
+  const [input, setInput] = useState("");
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -26,7 +21,8 @@ export default function AssistentePage() {
         <div className="mb-6">
           <h1 className="text-3xl font-bold mb-2">Assistente IA</h1>
           <p className="text-muted-foreground">
-            Faça perguntas sobre o edital do ENEM, tire dúvidas sobre conteúdos e datas importantes
+            Faça perguntas sobre o edital do ENEM, tire dúvidas sobre conteúdos
+            e datas importantes
           </p>
         </div>
 
@@ -35,9 +31,16 @@ export default function AssistentePage() {
             {/* Messages */}
             <div className="flex-1 overflow-y-auto space-y-4 mb-4">
               {messages.map((message, index) => (
-                <div key={index} className={`flex gap-3 ${message.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
+                <div
+                  key={index}
+                  className={`flex gap-3 ${message.role === "user" ? "flex-row-reverse" : "flex-row"}`}
+                >
                   <Avatar className="w-8 h-8">
-                    <AvatarFallback className={message.role === "assistant" ? "bg-primary" : "bg-muted"}>
+                    <AvatarFallback
+                      className={
+                        message.role === "assistant" ? "bg-primary" : "bg-muted"
+                      }
+                    >
                       {message.role === "assistant" ? (
                         <Bot className="w-4 h-4 text-primary-foreground" />
                       ) : (
@@ -47,27 +50,86 @@ export default function AssistentePage() {
                   </Avatar>
                   <div
                     className={`flex-1 max-w-2xl rounded-lg p-4 ${
-                      message.role === "assistant" ? "bg-muted" : "bg-primary text-primary-foreground"
+                      message.role === "assistant"
+                        ? "bg-muted"
+                        : "bg-primary text-primary-foreground"
                     }`}
                   >
-                    <p className="text-sm leading-relaxed">{message.content}</p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                      {message.content}
+                    </p>
+                    {message.sources && message.sources.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <p className="text-xs text-muted-foreground mb-1">
+                          Fontes:
+                        </p>
+                        <ul className="text-xs text-muted-foreground list-disc list-inside">
+                          {message.sources.map((source, i) => (
+                            <li key={i}>{source}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
 
+              {loading && (
+                <div className="flex gap-3">
+                  <Avatar className="w-8 h-8">
+                    <AvatarFallback className="bg-primary">
+                      <Bot className="w-4 h-4 text-primary-foreground animate-pulse" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 max-w-2xl rounded-lg p-4 bg-muted">
+                    <p className="text-sm text-muted-foreground">
+                      Processando sua pergunta...
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Suggested Questions */}
-              {messages.length === 1 && (
+              {messages.length === 1 && !loading && (
                 <div className="flex flex-wrap gap-2 pt-4">
-                  <Button variant="outline" size="sm" className="text-xs bg-transparent">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs bg-transparent"
+                    onClick={() => {
+                      setInput("Quando será a prova do ENEM 2026?");
+                    }}
+                  >
                     Quando será a prova do ENEM 2026?
                   </Button>
-                  <Button variant="outline" size="sm" className="text-xs bg-transparent">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs bg-transparent"
+                    onClick={() => {
+                      setInput("Quais são as áreas de conhecimento do ENEM?");
+                    }}
+                  >
                     Quais são as áreas de conhecimento?
                   </Button>
-                  <Button variant="outline" size="sm" className="text-xs bg-transparent">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs bg-transparent"
+                    onClick={() => {
+                      setInput("Como funciona a redação do ENEM?");
+                    }}
+                  >
                     Como funciona a redação?
                   </Button>
-                  <Button variant="outline" size="sm" className="text-xs bg-transparent">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs bg-transparent"
+                    onClick={() => {
+                      setInput("Qual a nota de corte de Medicina?");
+                    }}
+                  >
                     Qual a nota de corte de Medicina?
                   </Button>
                 </div>
@@ -80,22 +142,24 @@ export default function AssistentePage() {
                 placeholder="Digite sua pergunta..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && input.trim()) {
-                    setMessages([...messages, { role: "user", content: input }])
-                    setInput("")
+                onKeyDown={async (e) => {
+                  if (e.key === "Enter" && input.trim() && !loading) {
+                    await sendMessage(input);
+                    setInput("");
                   }
                 }}
+                disabled={loading}
                 className="flex-1"
               />
               <Button
                 size="icon"
-                onClick={() => {
+                onClick={async () => {
                   if (input.trim()) {
-                    setMessages([...messages, { role: "user", content: input }])
-                    setInput("")
+                    await sendMessage(input);
+                    setInput("");
                   }
                 }}
+                disabled={loading || !input.trim()}
               >
                 <Send className="w-4 h-4" />
               </Button>
@@ -104,5 +168,5 @@ export default function AssistentePage() {
         </Card>
       </main>
     </div>
-  )
+  );
 }

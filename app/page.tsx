@@ -1,7 +1,67 @@
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { BookOpen, Brain, Target, TrendingUp, Users, Zap } from "lucide-react"
+"use client";
+
+import { useEffect } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { BookOpen, Brain, Target, TrendingUp, Users, Zap } from "lucide-react";
+import { useStats } from "@/hooks/use-api";
+
+function StatsGrid() {
+  const { stats, loading, error, fetchStats } = useStats();
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  const total = stats?.total ?? "—";
+  const materias = stats?.por_materia
+    ? Object.keys(stats.por_materia).length
+    : "—";
+  const anos = stats?.por_ano ? Object.keys(stats.por_ano).length : "—";
+
+  if (loading)
+    return <div className="text-center">Carregando estatísticas...</div>;
+  if (error) return <div className="text-destructive">{error}</div>;
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+      <div className="text-center">
+        <div className="text-4xl md:text-5xl font-bold text-primary mb-2">
+          {total}
+        </div>
+        <div className="text-sm text-muted-foreground">
+          Questões disponíveis
+        </div>
+      </div>
+      <div className="text-center">
+        <div className="text-4xl md:text-5xl font-bold text-primary mb-2">
+          {materias}
+        </div>
+        <div className="text-sm text-muted-foreground">Matérias cobertas</div>
+      </div>
+      <div className="text-center">
+        <div className="text-4xl md:text-5xl font-bold text-primary mb-2">
+          {anos}
+        </div>
+        <div className="text-sm text-muted-foreground">Anos disponíveis</div>
+      </div>
+      <div className="text-center">
+        <div className="text-4xl md:text-5xl font-bold text-primary mb-2">
+          24/7
+        </div>
+        <div className="text-sm text-muted-foreground">
+          Assistente IA disponível
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function LandingPage() {
   return (
@@ -61,14 +121,19 @@ export default function LandingPage() {
               <span className="text-primary">ENEM</span>
             </h1>
             <p className="text-xl text-muted-foreground mb-10 text-pretty max-w-2xl mx-auto">
-              Plataforma inteligente que combina IA avançada com metodologia comprovada para turbinar seus estudos e
-              alcançar a aprovação.
+              Plataforma inteligente que combina IA avançada com metodologia
+              comprovada para turbinar seus estudos e alcançar a aprovação.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button size="lg" className="text-lg px-8" asChild>
                 <Link href="/cadastro">Começar Gratuitamente</Link>
               </Button>
-              <Button size="lg" variant="outline" className="text-lg px-8 bg-transparent" asChild>
+              <Button
+                size="lg"
+                variant="outline"
+                className="text-lg px-8 bg-transparent"
+                asChild
+              >
                 <Link href="#features">Ver Funcionalidades</Link>
               </Button>
             </div>
@@ -79,24 +144,7 @@ export default function LandingPage() {
       {/* Stats Section */}
       <section className="py-16 bg-muted/30">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            <div className="text-center">
-              <div className="text-4xl md:text-5xl font-bold text-primary mb-2">10K+</div>
-              <div className="text-sm text-muted-foreground">Questões disponíveis</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl md:text-5xl font-bold text-primary mb-2">95%</div>
-              <div className="text-sm text-muted-foreground">Taxa de satisfação</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl md:text-5xl font-bold text-primary mb-2">2K+</div>
-              <div className="text-sm text-muted-foreground">Alunos ativos</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl md:text-5xl font-bold text-primary mb-2">24/7</div>
-              <div className="text-sm text-muted-foreground">Assistente IA disponível</div>
-            </div>
-          </div>
+          <StatsGrid />
         </div>
       </section>
 
@@ -104,13 +152,14 @@ export default function LandingPage() {
       <section id="features" className="py-20 md:py-32">
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">Funcionalidades Principais</h2>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              Funcionalidades Principais
+            </h2>
             <p className="text-xl text-muted-foreground text-pretty">
               Ferramentas inteligentes que transformam sua forma de estudar
             </p>
           </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             <Card className="border-2">
               <CardHeader>
                 <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
@@ -118,7 +167,8 @@ export default function LandingPage() {
                 </div>
                 <CardTitle>Assistente IA Especializado</CardTitle>
                 <CardDescription className="text-base">
-                  Tire dúvidas sobre editais e conteúdos do ENEM com respostas precisas baseadas em documentos oficiais
+                  Tire dúvidas sobre editais e conteúdos do ENEM com respostas
+                  precisas baseadas em documentos oficiais
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -130,7 +180,8 @@ export default function LandingPage() {
                 </div>
                 <CardTitle>Simulados Personalizados</CardTitle>
                 <CardDescription className="text-base">
-                  Gere listas de exercícios sob demanda com filtros por matéria, ano e nível de dificuldade
+                  Gere listas de exercícios sob demanda com filtros por matéria,
+                  ano e nível de dificuldade
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -142,7 +193,8 @@ export default function LandingPage() {
                 </div>
                 <CardTitle>Dashboard de Performance</CardTitle>
                 <CardDescription className="text-base">
-                  Acompanhe seu desempenho com métricas detalhadas e análise de evolução
+                  Acompanhe seu desempenho com métricas detalhadas e análise de
+                  evolução
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -154,7 +206,8 @@ export default function LandingPage() {
                 </div>
                 <CardTitle>Banco de Questões</CardTitle>
                 <CardDescription className="text-base">
-                  Acesso a milhares de questões do ENEM com filtros avançados e busca inteligente
+                  Acesso a milhares de questões do ENEM com filtros avançados e
+                  busca inteligente
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -166,7 +219,8 @@ export default function LandingPage() {
                 </div>
                 <CardTitle>Ferramentas para Professores</CardTitle>
                 <CardDescription className="text-base">
-                  Monte provas, crie materiais e gerencie turmas com suporte de IA
+                  Monte provas, crie materiais e gerencie turmas com suporte de
+                  IA
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -178,7 +232,8 @@ export default function LandingPage() {
                 </div>
                 <CardTitle>Plano de Estudos Dinâmico</CardTitle>
                 <CardDescription className="text-base">
-                  IA que monta e ajusta automaticamente seu cronograma baseado em suas metas
+                  IA que monta e ajusta automaticamente seu cronograma baseado
+                  em suas metas
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -190,9 +245,12 @@ export default function LandingPage() {
       <section className="py-20 bg-card border-y border-border">
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-balance">Pronto para transformar seus estudos?</h2>
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-balance">
+              Pronto para transformar seus estudos?
+            </h2>
             <p className="text-xl text-muted-foreground mb-10 text-pretty">
-              Junte-se a milhares de estudantes que já estão usando IA para alcançar seus objetivos.
+              Junte-se a milhares de estudantes que já estão usando IA para
+              alcançar seus objetivos.
             </p>
             <Button size="lg" className="text-lg px-8" asChild>
               <Link href="/cadastro">Criar Conta Gratuita</Link>
@@ -212,23 +270,34 @@ export default function LandingPage() {
                 </div>
                 <span className="font-bold">ConcursIA</span>
               </div>
-              <p className="text-sm text-muted-foreground">Plataforma de preparação inteligente para concursos.</p>
+              <p className="text-sm text-muted-foreground">
+                Plataforma de preparação inteligente para concursos.
+              </p>
             </div>
             <div>
               <h3 className="font-semibold mb-4">Produto</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <Link href="#" className="hover:text-foreground transition-colors">
+                  <Link
+                    href="#"
+                    className="hover:text-foreground transition-colors"
+                  >
                     Funcionalidades
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="hover:text-foreground transition-colors">
+                  <Link
+                    href="#"
+                    className="hover:text-foreground transition-colors"
+                  >
                     Planos
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="hover:text-foreground transition-colors">
+                  <Link
+                    href="#"
+                    className="hover:text-foreground transition-colors"
+                  >
                     Roadmap
                   </Link>
                 </li>
@@ -238,17 +307,26 @@ export default function LandingPage() {
               <h3 className="font-semibold mb-4">Suporte</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <Link href="#" className="hover:text-foreground transition-colors">
+                  <Link
+                    href="#"
+                    className="hover:text-foreground transition-colors"
+                  >
                     Documentação
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="hover:text-foreground transition-colors">
+                  <Link
+                    href="#"
+                    className="hover:text-foreground transition-colors"
+                  >
                     FAQ
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="hover:text-foreground transition-colors">
+                  <Link
+                    href="#"
+                    className="hover:text-foreground transition-colors"
+                  >
                     Contato
                   </Link>
                 </li>
@@ -258,12 +336,18 @@ export default function LandingPage() {
               <h3 className="font-semibold mb-4">Legal</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <Link href="#" className="hover:text-foreground transition-colors">
+                  <Link
+                    href="#"
+                    className="hover:text-foreground transition-colors"
+                  >
                     Privacidade
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="hover:text-foreground transition-colors">
+                  <Link
+                    href="#"
+                    className="hover:text-foreground transition-colors"
+                  >
                     Termos
                   </Link>
                 </li>
@@ -276,5 +360,5 @@ export default function LandingPage() {
         </div>
       </footer>
     </div>
-  )
+  );
 }
