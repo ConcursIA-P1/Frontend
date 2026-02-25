@@ -71,6 +71,19 @@ export interface ChatResponse {
   sources?: string[];
 }
 
+export interface ChatHistoryMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  sources?: string[];
+  created_at: string;
+}
+
+export interface ChatHistoryResponse {
+  messages: ChatHistoryMessage[];
+  total: number;
+}
+
 // Classe do cliente API
 class ApiClient {
   private baseUrl: string;
@@ -245,13 +258,31 @@ class ApiClient {
    * ENDPOINTS DE CHAT/RAG
    */
 
-  // Enviar mensagem ao chatbot
-  async sendChatMessage(message: string): Promise<ChatResponse> {
+  // Enviar mensagem ao chatbot (com auth opcional para salvar histórico)
+  async sendChatMessage(message: string, token?: string): Promise<ChatResponse> {
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
     return this.request("/chat", {
       method: "POST",
-      body: JSON.stringify({
-        message: message, // Backend espera "message"
-      }),
+      headers,
+      body: JSON.stringify({ message }),
+    });
+  }
+
+  // Obter histórico de chat do usuário
+  async getChatHistory(token: string): Promise<ChatHistoryResponse> {
+    return this.request("/chat/history", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+
+  // Limpar histórico de chat
+  async clearChatHistory(token: string): Promise<{ message: string; deleted: number }> {
+    return this.request("/chat/history", {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
     });
   }
 

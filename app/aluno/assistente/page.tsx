@@ -5,25 +5,49 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Bot, Send, User } from "lucide-react";
-import { useState } from "react";
+import { Bot, Send, User, Trash2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { useChat } from "@/hooks/use-api";
 
 export default function AssistentePage() {
-  const { messages, loading, error, sendMessage } = useChat();
+  const { messages, loading, historyLoaded, sendMessage, clearHistory, loadHistory } = useChat();
   const [input, setInput] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Carregar histórico ao montar
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
+  // Auto-scroll para a última mensagem
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <StudentNav />
 
       <main className="flex-1 container mx-auto px-4 py-8 flex flex-col">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Assistente IA</h1>
-          <p className="text-muted-foreground">
-            Faça perguntas sobre o edital do ENEM, tire dúvidas sobre conteúdos
-            e datas importantes
-          </p>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Assistente IA</h1>
+            <p className="text-muted-foreground">
+              Faça perguntas sobre o edital do ENEM, tire dúvidas sobre conteúdos
+              e datas importantes
+            </p>
+          </div>
+          {messages.length > 1 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={clearHistory}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Limpar histórico
+            </Button>
+          )}
         </div>
 
         <Card className="flex-1 flex flex-col">
@@ -49,11 +73,10 @@ export default function AssistentePage() {
                     </AvatarFallback>
                   </Avatar>
                   <div
-                    className={`flex-1 max-w-2xl rounded-lg p-4 ${
-                      message.role === "assistant"
+                    className={`flex-1 max-w-2xl rounded-lg p-4 ${message.role === "assistant"
                         ? "bg-muted"
                         : "bg-primary text-primary-foreground"
-                    }`}
+                      }`}
                   >
                     <p className="text-sm leading-relaxed whitespace-pre-wrap">
                       {message.content}
@@ -89,8 +112,8 @@ export default function AssistentePage() {
                 </div>
               )}
 
-              {/* Suggested Questions */}
-              {messages.length === 1 && !loading && (
+              {/* Suggested Questions — show only when no history */}
+              {messages.length === 1 && !loading && historyLoaded && (
                 <div className="flex flex-wrap gap-2 pt-4">
                   <Button
                     variant="outline"
@@ -134,6 +157,8 @@ export default function AssistentePage() {
                   </Button>
                 </div>
               )}
+
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Input */}

@@ -216,21 +216,51 @@ export function useSimulados() {
 }
 
 /**
- * Hook para chat com RAG
+ * Hook para chat com RAG (com persistência de histórico)
  */
 export function useChat() {
+  const WELCOME_MESSAGE = {
+    role: "assistant" as const,
+    content:
+      "Olá! Sou o assistente IA do ConcursIA. Posso te ajudar com dúvidas sobre o ENEM, editais, conteúdos e muito mais. Como posso te ajudar hoje?",
+  };
+
   const [messages, setMessages] = useState<
     Array<{ role: "user" | "assistant"; content: string; sources?: string[] }>
-  >([
-    {
-      role: "assistant",
-      content:
-        "Olá! Sou o assistente IA do ConcursIA. Posso te ajudar com dúvidas sobre o ENEM, editais, conteúdos e muito mais. Como posso te ajudar hoje?",
-    },
-  ]);
+  >([WELCOME_MESSAGE]);
   const [loading, setLoading] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const getToken = (): string | undefined => {
+    if (typeof window === "undefined") return undefined;
+    return localStorage.getItem("auth_token") || undefined;
+  };
+
+  // Carregar histórico do servidor ao montar
+  const loadHistory = useCallback(async () => {
+    const token = getToken();
+    if (!token) {
+      setHistoryLoaded(true);
+      return;
+    }
+    try {
+      const response = await apiClient.getChatHistory(token);
+      if (response.messages && response.messages.length > 0) {
+        const loaded = response.messages.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+          sources: m.sources || undefined,
+        }));
+        setMessages([WELCOME_MESSAGE, ...loaded]);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar histórico:", err);
+    } finally {
+      setHistoryLoaded(true);
+    }
+  }, []);
 
   const sendMessage = useCallback(
     async (message: string) => {
@@ -239,8 +269,9 @@ export function useChat() {
         // Adicionar mensagem do usuário
         setMessages((prev) => [...prev, { role: "user", content: message }]);
 
-        // Buscar resposta da API
-        const response = await apiClient.sendChatMessage(message);
+        const token = getToken();
+        // Buscar resposta da API (com token para persistir)
+        const response = await apiClient.sendChatMessage(message, token);
         setMessages((prev) => [
           ...prev,
           {
@@ -254,8 +285,7 @@ export function useChat() {
         const errorMessage =
           err instanceof Error ? err.message : "Erro desconhecido";
         setError(errorMessage);
-        
-        // Adicionar mensagem de erro no chat
+
         setMessages((prev) => [
           ...prev,
           {
@@ -263,7 +293,7 @@ export function useChat() {
             content: `Desculpe, ocorreu um erro ao processar sua mensagem: ${errorMessage}`,
           },
         ]);
-        
+
         toast({
           title: "Erro",
           description: errorMessage,
@@ -276,23 +306,27 @@ export function useChat() {
     [toast],
   );
 
-  const clearMessages = useCallback(() => {
-    setMessages([
-      {
-        role: "assistant",
-        content:
-          "Olá! Sou o assistente IA do ConcursIA. Posso te ajudar com dúvidas sobre o ENEM, editais, conteúdos e muito mais. Como posso te ajudar hoje?",
-      },
-    ]);
+  const clearHistory = useCallback(async () => {
+    const token = getToken();
+    if (token) {
+      try {
+        await apiClient.clearChatHistory(token);
+      } catch (err) {
+        console.error("Erro ao limpar histórico:", err);
+      }
+    }
+    setMessages([WELCOME_MESSAGE]);
     setError(null);
   }, []);
 
   return {
     messages,
     loading,
+    historyLoaded,
     error,
     sendMessage,
-    clearMessages,
+    clearHistory,
+    loadHistory,
   };
 }
 
