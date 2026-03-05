@@ -31,7 +31,7 @@ import {
 import { FileText, Plus, Sparkles, Trash2, Loader2 } from "lucide-react";
 import { useQuestions, useSimulados } from "@/hooks/use-api";
 import { useToast } from "@/hooks/use-toast";
-import { Question } from "@/lib/api-client";
+import { apiClient, Question } from "@/lib/api-client";
 
 function QuestionsInProva({
   questions,
@@ -92,6 +92,19 @@ export default function CriarProvaPage() {
   // Estado do gerador IA
   const [iaMateria, setIaMateria] = useState("");
   const [iaQuantidade, setIaQuantidade] = useState("10");
+  const [materiasDisponiveis, setMateriasDisponiveis] = useState<string[]>([]);
+
+  useEffect(() => {
+    const loadMaterias = async () => {
+      try {
+        const materias = await apiClient.getMaterias();
+        setMateriasDisponiveis(materias);
+      } catch {
+        setMateriasDisponiveis([]);
+      }
+    };
+    loadMaterias();
+  }, []);
 
   const handleRemoveQuestion = (id: string) => {
     setQuestionsInProva((prev) => prev.filter((q) => q.id !== id));
@@ -196,15 +209,38 @@ export default function CriarProvaPage() {
       });
       return;
     }
-    const saved = JSON.parse(localStorage.getItem("saved_provas") || "[]");
-    saved.push({
-      id: crypto.randomUUID(),
-      titulo,
-      created_at: new Date().toISOString(),
-      questions: questionsInProva,
-    });
-    localStorage.setItem("saved_provas", JSON.stringify(saved));
-    toast({ title: "Sucesso", description: "Prova salva localmente!" });
+
+    const materiasConfig = Object.entries(materiasCounts)
+      .filter(([materia]) => materia && materia !== "Geral")
+      .map(([materia, quantidade]) => ({ materia: materia.toLowerCase(), quantidade }));
+
+    if (materiasConfig.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível mapear matérias válidas para salvar no backend",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    apiClient
+      .generateSimulado({
+        titulo,
+        anos: [...new Set(questionsInProva.map((q) => q.ano).filter(Boolean))],
+        materias_config: materiasConfig,
+      })
+      .then(() => {
+        toast({ title: "Sucesso", description: "Prova salva no backend como simulado" });
+      })
+      .catch((err) => {
+        toast({
+          title: "Erro",
+          description: err instanceof Error ? err.message : "Não foi possível salvar no backend",
+          variant: "destructive",
+        });
+      })
+      .finally(() => setIsGenerating(false));
   };
 
   return (
@@ -336,12 +372,17 @@ export default function CriarProvaPage() {
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="matematica">Matemática</SelectItem>
-                      <SelectItem value="linguagens">Linguagens</SelectItem>
-                      <SelectItem value="humanas">Humanas</SelectItem>
-                      <SelectItem value="natureza">
-                        Ciências da Natureza
-                      </SelectItem>
+                      {materiasDisponiveis.length === 0 ? (
+                        <SelectItem value="__none" disabled>
+                          Nenhuma matéria carregada
+                        </SelectItem>
+                      ) : (
+                        materiasDisponiveis.map((m) => (
+                          <SelectItem key={m} value={m}>
+                            {m}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>

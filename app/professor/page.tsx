@@ -10,7 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Database, FileText, Plus, TrendingUp, Users, Zap } from "lucide-react";
 import Link from "next/link";
 import { useStats, useSimulados } from "@/hooks/use-api";
@@ -65,8 +64,8 @@ export default function ProfessorDashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">8</div>
-              <p className="text-xs text-muted-foreground mt-1">3 turmas</p>
+              <div className="text-3xl font-bold">{simulados.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">simulados no backend</p>
             </CardContent>
           </Card>
 
@@ -80,8 +79,8 @@ export default function ProfessorDashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">87</div>
-              <p className="text-xs text-primary mt-1">↑ 5 novos alunos</p>
+              <div className="text-3xl font-bold">--</div>
+              <p className="text-xs text-muted-foreground mt-1">sem endpoint de turmas/alunos</p>
             </CardContent>
           </Card>
 
@@ -95,8 +94,10 @@ export default function ProfessorDashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">74%</div>
-              <p className="text-xs text-primary mt-1">↑ 3% do mês passado</p>
+              <div className="text-3xl font-bold">
+                {stats?.por_materia ? Object.keys(stats.por_materia).length : 0}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">matérias com questões</p>
             </CardContent>
           </Card>
         </div>
@@ -189,132 +190,58 @@ export default function ProfessorDashboard() {
               </CardContent>
             </Card>
 
-            {/* Recent Activity */}
+            {/* Simulados Recentes */}
             <Card>
               <CardHeader>
-                <CardTitle>Provas Recentes</CardTitle>
+                <CardTitle>Simulados Recentes</CardTitle>
                 <CardDescription>
-                  Últimas provas criadas e aplicadas
+                  Últimos simulados gerados no backend
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-start justify-between p-4 rounded-lg border border-border">
-                  <div className="flex gap-4">
-                    <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10">
-                      <FileText className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium mb-1">
-                        Prova de Matemática - Funções
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Turma 3A • 25 questões
-                      </p>
-                      <div className="flex gap-2">
-                        <Badge variant="secondary">Aplicada</Badge>
-                        <Badge variant="outline">78% média</Badge>
-                      </div>
-                    </div>
+                {simulados.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    Nenhum simulado encontrado.
                   </div>
-                  <Button size="sm" variant="outline">
-                    Ver Resultados
-                  </Button>
-                </div>
-
-                <div className="flex items-start justify-between p-4 rounded-lg border border-border">
-                  <div className="flex gap-4">
-                    <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10">
-                      <FileText className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium mb-1">
-                        Simulado ENEM - Geral
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Turma 3B • 45 questões
-                      </p>
-                      <div className="flex gap-2">
-                        <Badge>Em andamento</Badge>
-                        <Badge variant="outline">23/30 enviados</Badge>
+                ) : (
+                  simulados.slice(0, 5).map((simulado) => (
+                    <div
+                      key={simulado.id}
+                      className="flex items-start justify-between p-4 rounded-lg border border-border"
+                    >
+                      <div className="flex gap-4">
+                        <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10">
+                          <FileText className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium mb-1">{simulado.titulo || "Simulado"}</h3>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {(simulado.total_questoes ?? simulado.questions?.length ?? simulado.questoes?.length ?? 0)} questões
+                          </p>
+                        </div>
                       </div>
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/aluno/simulados/${simulado.id}`}>Abrir</Link>
+                      </Button>
                     </div>
-                  </div>
-                  <Button size="sm" variant="outline">
-                    Acompanhar
-                  </Button>
-                </div>
-
-                <div className="flex items-start justify-between p-4 rounded-lg border border-border">
-                  <div className="flex gap-4">
-                    <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10">
-                      <FileText className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium mb-1">
-                        Lista de Exercícios - Física
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Turma 2A • 15 questões
-                      </p>
-                      <div className="flex gap-2">
-                        <Badge variant="outline">Rascunho</Badge>
-                      </div>
-                    </div>
-                  </div>
-                  <Button size="sm" variant="outline">
-                    Editar
-                  </Button>
-                </div>
+                  ))
+                )}
               </CardContent>
             </Card>
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Top Performing Classes */}
+            {/* Backend Status */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Turmas - Desempenho</CardTitle>
+                <CardTitle className="text-base">Status da Integração</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">Turma 3A</div>
-                    <div className="text-sm text-muted-foreground">
-                      28 alunos
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold text-primary">82%</div>
-                    <div className="text-xs text-muted-foreground">média</div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">Turma 3B</div>
-                    <div className="text-sm text-muted-foreground">
-                      32 alunos
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold text-primary">75%</div>
-                    <div className="text-xs text-muted-foreground">média</div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">Turma 2A</div>
-                    <div className="text-sm text-muted-foreground">
-                      27 alunos
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold text-primary">68%</div>
-                    <div className="text-xs text-muted-foreground">média</div>
-                  </div>
-                </div>
+              <CardContent className="space-y-3 text-sm text-muted-foreground">
+                <p>Dados reais conectados: banco de questões e simulados.</p>
+                <p>Pendente no backend: turmas, alunos e resultados por turma.</p>
                 <Button variant="link" className="w-full" asChild>
-                  <Link href="/professor/turmas">Ver todas as turmas →</Link>
+                  <Link href="/professor/turmas">Ver status de turmas →</Link>
                 </Button>
               </CardContent>
             </Card>
@@ -347,26 +274,20 @@ export default function ProfessorDashboard() {
             {/* Statistics */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Estatísticas do Mês</CardTitle>
+                <CardTitle className="text-base">Resumo do Backend</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">
-                    Provas aplicadas
-                  </span>
-                  <span className="font-medium">12</span>
+                  <span className="text-muted-foreground">Simulados gerados</span>
+                  <span className="font-medium">{simulados.length}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">
-                    Questões criadas
-                  </span>
-                  <span className="font-medium">28</span>
+                  <span className="text-muted-foreground">Questões no banco</span>
+                  <span className="font-medium">{stats?.total ?? 0}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">
-                    Tempo economizado
-                  </span>
-                  <span className="font-medium text-primary">18h</span>
+                  <span className="text-muted-foreground">Matérias disponíveis</span>
+                  <span className="font-medium text-primary">{stats?.por_materia ? Object.keys(stats.por_materia).length : 0}</span>
                 </div>
               </CardContent>
             </Card>

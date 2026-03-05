@@ -54,11 +54,23 @@ export interface QuestionCreateData {
 // Tipos de simulados
 export interface Simulado {
   id: string;
-  titulo: string;
-  descricao: string;
-  questoes: Question[];
+  titulo?: string;
+  descricao?: string;
+  questions?: Question[];
+  questoes?: Question[];
+  total_questoes?: number;
+  questoes_por_materia?: Record<string, number>;
   tempo_limite?: number;
-  criado_em: string;
+  created_at?: string;
+  criado_em?: string;
+}
+
+export interface SimuladoListResponse {
+  items: Simulado[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
 }
 
 // Tipos de chat/RAG
@@ -111,15 +123,25 @@ class ApiClient {
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({
-          message: response.statusText,
-        }));
+        const error = await response.json().catch(() => ({}));
+        const detail = Array.isArray(error?.detail)
+          ? error.detail.map((d: { msg?: string }) => d.msg).join(", ")
+          : error?.detail;
         throw new Error(
-          error.message || `Erro na requisição: ${response.status}`,
+          error?.message || detail || `Erro na requisição: ${response.status}`,
         );
       }
 
-      return await response.json();
+      if (response.status === 204) {
+        return undefined as T;
+      }
+
+      const text = await response.text();
+      if (!text) {
+        return undefined as T;
+      }
+
+      return JSON.parse(text) as T;
     } catch (error) {
       console.error(`Erro ao fazer requisição para ${url}:`, error);
       throw error;
@@ -230,7 +252,7 @@ class ApiClient {
   async listSimulados(
     page: number = 1,
     page_size: number = 20,
-  ): Promise<any> {
+  ): Promise<SimuladoListResponse> {
     const params = new URLSearchParams();
     params.append("page", page.toString());
     params.append("page_size", page_size.toString());

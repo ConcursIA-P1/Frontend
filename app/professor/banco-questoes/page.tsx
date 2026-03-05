@@ -26,6 +26,19 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiClient, Question, Alternativa } from "@/lib/api-client";
 
+const MATERIAS = [
+  { value: "matematica", label: "Matemática" },
+  { value: "linguagens", label: "Linguagens" },
+  { value: "humanas", label: "Humanas" },
+  { value: "natureza", label: "Natureza" },
+] as const;
+
+const DIFICULDADES = [
+  { value: "facil", label: "Fácil" },
+  { value: "media", label: "Médio" },
+  { value: "dificil", label: "Difícil" },
+] as const;
+
 // Constantes
 const INITIAL_ALTERNATIVES: Alternativa[] = [
   { letra: "A", texto: "" },
@@ -49,7 +62,7 @@ export default function BancoQuestoesPage() {
   const [ano, setAno] = useState<string>(new Date().getFullYear().toString());
   const [materia, setMateria] = useState("");
   const [topico, setTopico] = useState("");
-  const [dificuldade, setDificuldade] = useState<"Facil" | "Medio" | "Dificil">("Medio");
+  const [dificuldade, setDificuldade] = useState<"facil" | "media" | "dificil">("media");
   const [banca, setBanca] = useState("");
   const [prova, setProva] = useState("");
   const [alternativas, setAlternativas] = useState<Alternativa[]>(JSON.parse(JSON.stringify(INITIAL_ALTERNATIVES)));
@@ -86,7 +99,7 @@ export default function BancoQuestoesPage() {
     setAno(new Date().getFullYear().toString());
     setMateria("");
     setTopico("");
-    setDificuldade("Medio");
+    setDificuldade("media");
     setBanca("");
     setProva("");
     setAlternativas(JSON.parse(JSON.stringify(INITIAL_ALTERNATIVES)));
@@ -126,7 +139,7 @@ export default function BancoQuestoesPage() {
         alternativas,
         gabarito,
         ano: parseInt(ano),
-        materia: materia.trim(),
+        materia: materia.trim().toLowerCase(),
         topico: topico.trim(),
         dificuldade,
         banca: banca.trim(),
@@ -197,11 +210,18 @@ export default function BancoQuestoesPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Matéria *</Label>
-                        <Input 
-                          placeholder="Ex: Matemática" 
-                          value={materia}
-                          onChange={(e) => setMateria(e.target.value)}
-                        />
+                        <Select value={materia} onValueChange={setMateria}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {MATERIAS.map((m) => (
+                              <SelectItem key={m.value} value={m.value}>
+                                {m.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-2">
                         <Label>Tópico</Label>
@@ -226,15 +246,17 @@ export default function BancoQuestoesPage() {
                         <Label>Dificuldade</Label>
                         <Select 
                           value={dificuldade} 
-                          onValueChange={(v: any) => setDificuldade(v)}
+                          onValueChange={(v: "facil" | "media" | "dificil") => setDificuldade(v)}
                         >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Facil">Fácil</SelectItem>
-                            <SelectItem value="Medio">Médio</SelectItem>
-                            <SelectItem value="Dificil">Difícil</SelectItem>
+                            {DIFICULDADES.map((d) => (
+                              <SelectItem key={d.value} value={d.value}>
+                                {d.label}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -341,10 +363,11 @@ export default function BancoQuestoesPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Todas">Todas as matérias</SelectItem>
-                <SelectItem value="Matemática">Matemática</SelectItem>
-                <SelectItem value="Linguagens">Linguagens</SelectItem>
-                <SelectItem value="Humanas">Humanas</SelectItem>
-                <SelectItem value="Natureza">Natureza</SelectItem>
+                {MATERIAS.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

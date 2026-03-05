@@ -47,7 +47,7 @@ export default function SimuladoExecucaoPage() {
     };
   }, [simuladoId, router]);
 
-  const questions = simulado?.questoes || []; // Ajustado para 'questoes' conforme a interface atual
+  const questions = simulado?.questions || simulado?.questoes || [];
   const total = questions.length;
   const currentQuestion = questions[currentIndex];
 

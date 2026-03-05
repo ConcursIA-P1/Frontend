@@ -189,6 +189,31 @@ export default function SimuladosPage() {
   const [quantidade, setQuantidade] = useState("20");
   const [anos, setAnos] = useState<number[]>([]);
   const [materias, setMaterias] = useState<string[]>([]);
+  const [anosDisponiveis, setAnosDisponiveis] = useState<number[]>([]);
+  const [materiasDisponiveis, setMateriasDisponiveis] = useState<string[]>([]);
+
+  useEffect(() => {
+    const loadFilters = async () => {
+      try {
+        const [materiasResp, statsResp] = await Promise.all([
+          apiClient.getMaterias(),
+          apiClient.getQuestionsStats(),
+        ]);
+        setMateriasDisponiveis(materiasResp || []);
+        const porAno = statsResp?.data?.por_ano || statsResp?.por_ano || {};
+        const years = Object.keys(porAno)
+          .map((v) => Number(v))
+          .filter((v) => Number.isFinite(v))
+          .sort((a, b) => b - a);
+        setAnosDisponiveis(years);
+      } catch {
+        setMateriasDisponiveis([]);
+        setAnosDisponiveis([]);
+      }
+    };
+
+    loadFilters();
+  }, []);
 
   const handleGenerate = async () => {
     const qtd = parseInt(quantidade);
@@ -291,11 +316,11 @@ export default function SimuladosPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todos">Todos os anos</SelectItem>
-                    <SelectItem value="2024">2024</SelectItem>
-                    <SelectItem value="2023">2023</SelectItem>
-                    <SelectItem value="2022">2022</SelectItem>
-                    <SelectItem value="2021">2021</SelectItem>
-                    <SelectItem value="2020">2020</SelectItem>
+                    {anosDisponiveis.map((ano) => (
+                      <SelectItem key={ano} value={String(ano)}>
+                        {ano}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 {anos.length > 0 && (
@@ -331,10 +356,11 @@ export default function SimuladosPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todas">Todas as matérias</SelectItem>
-                    <SelectItem value="matematica">Matemática</SelectItem>
-                    <SelectItem value="linguagens">Linguagens</SelectItem>
-                    <SelectItem value="humanas">Humanas</SelectItem>
-                    <SelectItem value="natureza">Ciências da Natureza</SelectItem>
+                    {materiasDisponiveis.map((materia) => (
+                      <SelectItem key={materia} value={materia}>
+                        {materia}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 {materias.length > 0 && (

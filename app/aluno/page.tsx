@@ -22,20 +22,32 @@ import {
   MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
-import { useStats } from "@/hooks/use-api";
-import { loadStudentStats, StudentStats } from "@/lib/student-stats";
+import { useSimulados, useStats } from "@/hooks/use-api";
 
 export default function AlunoDashboard() {
   const { stats, fetchStats } = useStats();
-  const [studentStats, setStudentStats] = useState<StudentStats | null>(null);
+  const { simulados, fetchSimulados } = useSimulados();
+  const [totalRespondidas, setTotalRespondidas] = useState(0);
+  const enemDate = new Date("2026-11-08T00:00:00");
+  const today = new Date();
+  const diasAteEnem = Math.max(
+    0,
+    Math.ceil((enemDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)),
+  );
 
   useEffect(() => {
     fetchStats();
-  }, [fetchStats]);
+    fetchSimulados();
+  }, [fetchStats, fetchSimulados]);
 
   useEffect(() => {
-    setStudentStats(loadStudentStats());
-  }, []);
+    const total = simulados.reduce(
+      (acc, s) => acc + (s.total_questoes ?? s.questions?.length ?? s.questoes?.length ?? 0),
+      0,
+    );
+    setTotalRespondidas(total);
+  }, [simulados]);
+
   return (
     <div className="min-h-screen bg-background">
       <StudentNav />
@@ -61,7 +73,7 @@ export default function AlunoDashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">234</div>
+              <div className="text-3xl font-bold">{diasAteEnem}</div>
             </CardContent>
           </Card>
 
@@ -76,10 +88,10 @@ export default function AlunoDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">
-                {studentStats?.totalRespondidas ?? 0}
+                {totalRespondidas}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                respondidas em simulados
+                questões em simulados gerados
               </p>
             </CardContent>
           </Card>
@@ -95,16 +107,10 @@ export default function AlunoDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">
-                {studentStats && studentStats.totalRespondidas > 0
-                  ? Math.round(
-                      (studentStats.totalAcertos / studentStats.totalRespondidas) *
-                        100
-                    )
-                  : 0}
-                %
+                --
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                desempenho geral em simulados
+                pendente de endpoint de resultados
               </p>
             </CardContent>
           </Card>
@@ -113,14 +119,14 @@ export default function AlunoDashboard() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Horas de Estudo
+                  Simulados Gerados
                 </CardTitle>
                 <Clock className="w-4 h-4 text-muted-foreground" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">18h</div>
-              <p className="text-xs text-muted-foreground mt-1">Esta semana</p>
+              <div className="text-3xl font-bold">{simulados.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">total no backend</p>
             </CardContent>
           </Card>
         </div>
@@ -245,27 +251,25 @@ export default function AlunoDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {studentStats && Object.keys(studentStats.porMateria).length > 0 ? (
-                  Object.entries(studentStats.porMateria).map(([mat, data]) => {
-                    const percent =
-                      data.respondidas > 0
-                        ? Math.round((data.acertos / data.respondidas) * 100)
+                {stats?.por_materia && Object.keys(stats.por_materia).length > 0 ? (
+                  Object.entries(stats?.por_materia ?? {}).map(([mat, total]) => {
+                    const percentual =
+                      stats?.total && stats.total > 0
+                        ? Math.round((Number(total) / stats.total) * 100)
                         : 0;
                     return (
                       <div key={mat}>
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium">{mat}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {percent}%
-                          </span>
+                          <span className="text-sm text-muted-foreground">{percentual}%</span>
                         </div>
-                        <Progress value={percent} />
+                        <Progress value={percentual} />
                       </div>
                     );
                   })
                 ) : (
                   <div className="text-sm text-muted-foreground">
-                    Responda um simulado para ver seu desempenho por matéria.
+                    Ainda sem distribuição por matéria disponível.
                   </div>
                 )}
                 <Button variant="link" className="w-full" asChild>
@@ -280,7 +284,7 @@ export default function AlunoDashboard() {
                 <CardTitle className="text-base">Atividade Recente</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {studentStats?.historico?.[0] ? (
+                {simulados[0] ? (
                   <div className="flex gap-3">
                     <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
                       <Target className="w-4 h-4 text-primary" />
@@ -288,7 +292,7 @@ export default function AlunoDashboard() {
                     <div className="flex-1">
                       <p className="text-sm font-medium">Completou simulado</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(studentStats.historico[0].data).toLocaleDateString()}
+                        {new Date(simulados[0].created_at || simulados[0].criado_em || new Date().toISOString()).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
@@ -297,23 +301,8 @@ export default function AlunoDashboard() {
                     Nenhum simulado realizado ainda.
                   </div>
                 )}
-                <div className="flex gap-3">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
-                    <BookOpen className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Estudou Geometria</p>
-                    <p className="text-xs text-muted-foreground">Há 5 horas</p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
-                    <Brain className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Usou o assistente</p>
-                    <p className="text-xs text-muted-foreground">Ontem</p>
-                  </div>
+                <div className="text-xs text-muted-foreground">
+                  Histórico detalhado depende dos próximos endpoints de atividade do aluno.
                 </div>
               </CardContent>
             </Card>
