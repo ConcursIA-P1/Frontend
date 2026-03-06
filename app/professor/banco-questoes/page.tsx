@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState, useCallback } from "react";
 import { TeacherNav } from "@/components/teacher-nav";
 import { Button } from "@/components/ui/button";
