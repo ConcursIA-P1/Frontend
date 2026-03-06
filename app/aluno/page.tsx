@@ -28,6 +28,7 @@ export default function AlunoDashboard() {
   const { stats, fetchStats } = useStats();
   const { simulados, fetchSimulados } = useSimulados();
   const [totalRespondidas, setTotalRespondidas] = useState(0);
+  const [taxaAcerto, setTaxaAcerto] = useState<number | null>(null);
   const enemDate = new Date("2026-11-08T00:00:00");
   const today = new Date();
   const diasAteEnem = Math.max(
@@ -46,6 +47,19 @@ export default function AlunoDashboard() {
       0,
     );
     setTotalRespondidas(total);
+
+    const concluidos = simulados.filter((s) => s.resultado);
+    if (concluidos.length === 0) {
+      setTaxaAcerto(null);
+      return;
+    }
+
+    const totalAcertos = concluidos.reduce((acc, s) => acc + (s.resultado?.score ?? 0), 0);
+    const totalQuestoes = concluidos.reduce(
+      (acc, s) => acc + (s.resultado?.total_questoes ?? 0),
+      0,
+    );
+    setTaxaAcerto(totalQuestoes > 0 ? Math.round((totalAcertos / totalQuestoes) * 100) : null);
   }, [simulados]);
 
   return (
@@ -107,10 +121,10 @@ export default function AlunoDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">
-                --
+                {taxaAcerto !== null ? `${taxaAcerto}%` : "--"}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                pendente de endpoint de resultados
+                {taxaAcerto !== null ? "com base nos simulados concluidos" : "ainda sem simulados concluidos"}
               </p>
             </CardContent>
           </Card>

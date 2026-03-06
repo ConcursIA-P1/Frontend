@@ -31,7 +31,7 @@ import {
 import { FileText, Plus, Sparkles, Trash2, Loader2 } from "lucide-react";
 import { useQuestions, useSimulados } from "@/hooks/use-api";
 import { useToast } from "@/hooks/use-toast";
-import { apiClient, Question } from "@/lib/api-client";
+import { apiClient, Question, Turma } from "@/lib/api-client";
 
 function QuestionsInProva({
   questions,
@@ -93,17 +93,28 @@ export default function CriarProvaPage() {
   const [iaMateria, setIaMateria] = useState("");
   const [iaQuantidade, setIaQuantidade] = useState("10");
   const [materiasDisponiveis, setMateriasDisponiveis] = useState<string[]>([]);
+  const [turmasDisponiveis, setTurmasDisponiveis] = useState<Turma[]>([]);
+  const [turmaSelecionada, setTurmaSelecionada] = useState("");
 
   useEffect(() => {
-    const loadMaterias = async () => {
+    const loadInitialData = async () => {
       try {
         const materias = await apiClient.getMaterias();
         setMateriasDisponiveis(materias);
+
+        const token = localStorage.getItem("auth_token");
+        if (token) {
+          const turmas = await apiClient.listMyTurmas(token);
+          setTurmasDisponiveis(turmas || []);
+        } else {
+          setTurmasDisponiveis([]);
+        }
       } catch {
         setMateriasDisponiveis([]);
+        setTurmasDisponiveis([]);
       }
     };
-    loadMaterias();
+    loadInitialData();
   }, []);
 
   const handleRemoveQuestion = (id: string) => {
@@ -200,7 +211,7 @@ export default function CriarProvaPage() {
     {} as Record<string, number>,
   );
 
-  const handleSaveProva = () => {
+  const handleSaveProva = async () => {
     if (!titulo || questionsInProva.length === 0) {
       toast({
         title: "Erro",
@@ -224,23 +235,35 @@ export default function CriarProvaPage() {
     }
 
     setIsGenerating(true);
-    apiClient
-      .generateSimulado({
+    try {
+      const response = await apiClient.generateSimulado({
         titulo,
         anos: [...new Set(questionsInProva.map((q) => q.ano).filter(Boolean))],
         materias_config: materiasConfig,
-      })
-      .then(() => {
-        toast({ title: "Sucesso", description: "Prova salva no backend como simulado" });
-      })
-      .catch((err) => {
-        toast({
-          title: "Erro",
-          description: err instanceof Error ? err.message : "Não foi possível salvar no backend",
-          variant: "destructive",
-        });
-      })
-      .finally(() => setIsGenerating(false));
+      });
+
+      const simuladoId = response?.simulado?.id as string | undefined;
+      const token = localStorage.getItem("auth_token");
+
+      if (turmaSelecionada && simuladoId && token) {
+        await apiClient.assignSimuladoToTurma(turmaSelecionada, simuladoId, token);
+      }
+
+      toast({
+        title: "Sucesso",
+        description: turmaSelecionada
+          ? "Prova salva e atribuida a turma selecionada"
+          : "Prova salva no backend como simulado",
+      });
+    } catch (err) {
+      toast({
+        title: "Erro",
+        description: err instanceof Error ? err.message : "Nao foi possivel salvar no backend",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -277,14 +300,22 @@ export default function CriarProvaPage() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="turma">Turma</Label>
-                    <Select>
+                    <Select value={turmaSelecionada} onValueChange={setTurmaSelecionada}>
                       <SelectTrigger id="turma">
-                        <SelectValue placeholder="Selecione" />
+                        <SelectValue placeholder="Opcional: atribuir a turma" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="3a">Turma 3A</SelectItem>
-                        <SelectItem value="3b">Turma 3B</SelectItem>
-                        <SelectItem value="2a">Turma 2A</SelectItem>
+                        {turmasDisponiveis.length === 0 ? (
+                          <SelectItem value="__none" disabled>
+                            Nenhuma turma encontrada
+                          </SelectItem>
+                        ) : (
+                          turmasDisponiveis.map((turma) => (
+                            <SelectItem key={turma.id} value={turma.id}>
+                              {turma.nome}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   </div>

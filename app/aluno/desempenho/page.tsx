@@ -44,8 +44,20 @@ export default function DesempenhoPage() {
       titulo: s.titulo || "Simulado",
       data: s.created_at || s.criado_em || new Date().toISOString(),
       total: s.total_questoes ?? s.questions?.length ?? s.questoes?.length ?? 0,
+      score: s.resultado?.score,
+      percentual: s.resultado?.percentual,
+      concluido: Boolean(s.resultado),
     }));
   }, [simulados]);
+
+  const taxaAcerto = useMemo(() => {
+    const concluidos = historicoSimulados.filter((s) => s.concluido);
+    if (concluidos.length === 0) return null;
+    const acertos = concluidos.reduce((acc, s) => acc + (s.score ?? 0), 0);
+    const questoes = concluidos.reduce((acc, s) => acc + s.total, 0);
+    if (questoes === 0) return null;
+    return Math.round((acertos / questoes) * 100);
+  }, [historicoSimulados]);
 
   const materiaPerf = useMemo(
     () =>
@@ -135,10 +147,10 @@ export default function DesempenhoPage() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">
-                --
+                {taxaAcerto !== null ? `${taxaAcerto}%` : "--"}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                pendente de endpoint de resultados
+                {taxaAcerto !== null ? "com base nos simulados concluidos" : "ainda sem simulados concluidos"}
               </p>
             </CardContent>
           </Card>
@@ -234,7 +246,9 @@ export default function DesempenhoPage() {
                       </div>
                       <div className="text-right">
                         <div className="text-xs text-muted-foreground">
-                          {simulado.total} questões
+                          {simulado.concluido && simulado.score !== undefined
+                            ? `${simulado.score}/${simulado.total} acertos (${simulado.percentual ?? 0}%)`
+                            : `${simulado.total} questões`}
                         </div>
                       </div>
                     </div>
