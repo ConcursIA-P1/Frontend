@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { TeacherNav } from "@/components/teacher-nav";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -26,6 +28,8 @@ export default function TurmasProfessorPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
+  const [creatingTurma, setCreatingTurma] = useState(false);
+  const [newTurmaNome, setNewTurmaNome] = useState("");
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [simuladosDisponiveis, setSimuladosDisponiveis] = useState<Simulado[]>([]);
   const [simuladosPorTurma, setSimuladosPorTurma] = useState<Record<string, Simulado[]>>({});
@@ -77,6 +81,74 @@ export default function TurmasProfessorPage() {
     loadPageData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  const getCurrentUserId = (): string | undefined => {
+    if (typeof window === "undefined") return undefined;
+    const raw = localStorage.getItem("auth_user");
+    if (!raw) return undefined;
+    try {
+      const parsed = JSON.parse(raw) as { id?: string; role?: string };
+      if (parsed.role !== "professor") return undefined;
+      return parsed.id;
+    } catch {
+      return undefined;
+    }
+  };
+
+  const handleCreateTurma = async () => {
+    const nome = newTurmaNome.trim();
+    if (!nome) {
+      toast({
+        title: "Nome obrigatorio",
+        description: "Informe um nome para a turma.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const professorId = getCurrentUserId();
+    if (!professorId) {
+      toast({
+        title: "Sessao invalida",
+        description: "Faca login novamente como professor para criar turmas.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreatingTurma(true);
+    try {
+      const turmaCriada = await apiClient.createTurma(
+        {
+          nome,
+          professor_id: professorId,
+        },
+        token || undefined,
+      );
+
+      setTurmas((prev) => [turmaCriada, ...prev]);
+      setSimuladosPorTurma((prev) => ({
+        ...prev,
+        [turmaCriada.id]: [],
+      }));
+      setSelectedTurmaId(turmaCriada.id);
+      setNewTurmaNome("");
+
+      toast({
+        title: "Turma criada",
+        description: `A turma \"${turmaCriada.nome}\" foi criada com sucesso.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description:
+          error instanceof Error ? error.message : "Nao foi possivel criar a turma",
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingTurma(false);
+    }
+  };
 
   const handleAssign = async () => {
     if (!token) {
@@ -139,6 +211,36 @@ export default function TurmasProfessorPage() {
             Gerencie suas turmas e atribua simulados para os alunos.
           </p>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Criar Turma</CardTitle>
+            <CardDescription>
+              Crie uma nova turma para depois atribuir simulados.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+            <div className="space-y-2">
+              <Label htmlFor="nova-turma">Nome da turma</Label>
+              <Input
+                id="nova-turma"
+                placeholder="Ex: 3A - Manha"
+                value={newTurmaNome}
+                onChange={(e) => setNewTurmaNome(e.target.value)}
+              />
+            </div>
+            <Button onClick={handleCreateTurma} disabled={creatingTurma || loading}>
+              {creatingTurma ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Criando...
+                </>
+              ) : (
+                "Criar turma"
+              )}
+            </Button>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
