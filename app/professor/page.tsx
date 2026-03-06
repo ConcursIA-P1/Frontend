@@ -265,8 +265,9 @@ export default function ProfessorDashboard() {
                   size="sm"
                   variant="outline"
                   className="w-full bg-background"
+                  asChild
                 >
-                  Experimentar
+                  <Link href="/professor/criar-prova?ia=true">Experimentar</Link>
                 </Button>
               </CardContent>
             </Card>

@@ -18,6 +18,7 @@ export interface ApiResponse<T = unknown> {
 export interface Alternativa {
   letra: string;
   texto: string;
+  imagem_url?: string;
 }
 
 export interface Question {
@@ -106,6 +107,11 @@ export interface Turma {
   alunos: TurmaUser[];
   created_at: string;
   updated_at: string;
+}
+
+export interface TurmaCreateData {
+  nome: string;
+  professor_id?: string;
 }
 
 // Tipos de chat/RAG
@@ -371,6 +377,14 @@ class ApiClient {
   async listMyTurmas(token: string): Promise<Turma[]> {
     return this.request("/turmas/mine", {
       headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+
+  async createTurma(data: TurmaCreateData, token?: string): Promise<Turma> {
+    return this.request("/turmas", {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: JSON.stringify(data),
     });
   }
 
