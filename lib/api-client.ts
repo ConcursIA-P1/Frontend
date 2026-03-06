@@ -4,6 +4,8 @@
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
+const API_ROOT_URL = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
+
 // Tipos de respostas da API
 export interface ApiResponse<T = unknown> {
   data?: T;
@@ -61,8 +63,23 @@ export interface Simulado {
   total_questoes?: number;
   questoes_por_materia?: Record<string, number>;
   tempo_limite?: number;
+  resultado?: SimuladoResultado;
   created_at?: string;
   criado_em?: string;
+}
+
+export interface SimuladoResultado {
+  score: number;
+  total_questoes: number;
+  answered_count: number;
+  unanswered_count: number;
+  percentual: number;
+  submitted_at: string;
+}
+
+export interface SimuladoSubmitResponse {
+  simulado_id: string;
+  resultado: SimuladoResultado;
 }
 
 export interface SimuladoListResponse {
@@ -71,6 +88,24 @@ export interface SimuladoListResponse {
   page: number;
   page_size: number;
   pages: number;
+}
+
+export interface TurmaUser {
+  id: string;
+  email: string;
+  name: string;
+  role: "aluno" | "professor";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Turma {
+  id: string;
+  nome: string;
+  professor?: TurmaUser | null;
+  alunos: TurmaUser[];
+  created_at: string;
+  updated_at: string;
 }
 
 // Tipos de chat/RAG
@@ -94,6 +129,48 @@ export interface ChatHistoryMessage {
 export interface ChatHistoryResponse {
   messages: ChatHistoryMessage[];
   total: number;
+}
+
+export function resolveQuestionImageUrl(rawPath?: string): string | undefined {
+  if (!rawPath) return undefined;
+
+  const path = rawPath.trim();
+  if (!path) return undefined;
+
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+
+  const normalized = path.replace(/\\/g, "/");
+
+  // Ja vem como rota de static da API
+  if (normalized.startsWith("/api/v1/static/")) {
+    return `${API_ROOT_URL}${normalized}`;
+  }
+
+  // Salvo como caminho relativo dentro de data/
+  if (normalized.startsWith("output_")) {
+    return `${API_ROOT_URL}/api/v1/static/${normalized}`;
+  }
+
+  // Caminho absoluto contendo /data/
+  const dataMatch = normalized.match(/\/data\/(.+)$/);
+  if (dataMatch?.[1]) {
+    return `${API_ROOT_URL}/api/v1/static/${dataMatch[1]}`;
+  }
+
+  // Caminho absoluto contendo apenas output_xxx/img/...
+  const outputMatch = normalized.match(/(output_\d{4}_d\d_prova\/img\/.+)$/i);
+  if (outputMatch?.[1]) {
+    return `${API_ROOT_URL}/api/v1/static/${outputMatch[1]}`;
+  }
+
+  // Caminho relativo comum
+  if (normalized.startsWith("/")) {
+    return `${API_ROOT_URL}${normalized}`;
+  }
+
+  return `${API_ROOT_URL}/${normalized}`;
 }
 
 // Classe do cliente API
@@ -269,10 +346,48 @@ class ApiClient {
     return this.request(`/simulados/${id}/stats`);
   }
 
+  // Enviar respostas e registrar resultado do simulado
+  async submitSimulado(
+    id: string,
+    answers: Record<string, string>,
+  ): Promise<SimuladoSubmitResponse> {
+    return this.request(`/simulados/${id}/submit`, {
+      method: "POST",
+      body: JSON.stringify({ answers }),
+    });
+  }
+
   // Deletar simulado
   async deleteSimulado(id: string): Promise<ApiResponse> {
     return this.request(`/simulados/${id}`, {
       method: "DELETE",
+    });
+  }
+
+  /**
+   * ENDPOINTS DE TURMAS
+   */
+
+  async listMyTurmas(token: string): Promise<Turma[]> {
+    return this.request("/turmas/mine", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+
+  async listTurmaSimulados(turmaId: string, token: string): Promise<Simulado[]> {
+    return this.request(`/turmas/${turmaId}/simulados`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+
+  async assignSimuladoToTurma(
+    turmaId: string,
+    simuladoId: string,
+    token: string,
+  ): Promise<Simulado[]> {
+    return this.request(`/turmas/${turmaId}/simulados/${simuladoId}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
     });
   }
 

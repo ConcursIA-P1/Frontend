@@ -6,14 +6,39 @@ import { useParams, useRouter } from "next/navigation";
 import { StudentNav } from "@/components/student-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { apiClient, Simulado } from "@/lib/api-client";
+import {
+  apiClient,
+  resolveQuestionImageUrl,
+  Simulado,
+  SimuladoResultado,
+} from "@/lib/api-client";
 import { Loader2, ChevronLeft, ChevronRight, CheckCircle, BookOpen, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 // Tipo para mapear as respostas (ID da questão -> Letra da alternativa)
 type AnswerMap = Record<string, string>;
+
+function stripImageMarkers(text?: string): string {
+  if (!text) return "";
+  const markerRegex = /\[IMAGEM:\s*([^\]]+)\]/gi;
+  return text.replace(markerRegex, "").replace(/\s{2,}/g, " ").trim();
+}
+
+function extractImagePaths(text?: string): string[] {
+  if (!text) return [];
+  const markerRegex = /\[IMAGEM:\s*([^\]]+)\]/gi;
+  const matches = Array.from(text.matchAll(markerRegex));
+  return matches.map((m) => m[1]?.trim()).filter((v): v is string => Boolean(v));
+}
 
 export default function SimuladoExecucaoPage() {
   const params = useParams<{ id: string }>();
@@ -25,6 +50,9 @@ export default function SimuladoExecucaoPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [finished, setFinished] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [savedResult, setSavedResult] = useState<SimuladoResultado | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -33,7 +61,13 @@ export default function SimuladoExecucaoPage() {
         if (!simuladoId) return;
         setLoading(true);
         const data = await apiClient.getSimuladoById(simuladoId);
-        if (active) setSimulado(data);
+        if (active) {
+          setSimulado(data);
+          if (data.resultado) {
+            setSavedResult(data.resultado);
+            setFinished(true);
+          }
+        }
       } catch {
         toast.error("Erro ao carregar simulado.");
         router.push("/aluno/simulados");
@@ -57,27 +91,73 @@ export default function SimuladoExecucaoPage() {
   );
 
   const score = useMemo(() => {
+    if (savedResult) return savedResult.score;
     if (!finished) return 0;
     return questions.reduce((acc, q) => {
       const selected = answers[q.id];
       return acc + (selected === q.gabarito ? 1 : 0);
     }, 0);
-  }, [answers, finished, questions]);
+  }, [answers, finished, questions, savedResult]);
+
+  const unansweredCount = savedResult
+    ? savedResult.unanswered_count
+    : Math.max(total - answeredCount, 0);
+  const scorePercent = savedResult
+    ? savedResult.percentual
+    : total > 0
+      ? Math.round((score / total) * 100)
+      : 0;
+
+  const questionImageUrls = useMemo(() => {
+    if (!currentQuestion) return [];
+
+    const fromEnunciado = extractImagePaths(currentQuestion.enunciado);
+    const fromAlternativas = (currentQuestion.alternativas || []).flatMap((alt) =>
+      extractImagePaths(alt.texto),
+    );
+    const fromField = currentQuestion.imagem_url ? [currentQuestion.imagem_url] : [];
+
+    const all = [...fromField, ...fromEnunciado, ...fromAlternativas]
+      .map((p) => resolveQuestionImageUrl(p))
+      .filter((u): u is string => Boolean(u));
+
+    return Array.from(new Set(all));
+  }, [currentQuestion]);
 
   const handleSelect = (questionId: string, letra: string) => {
     if (finished) return;
     setAnswers((prev) => ({ ...prev, [questionId]: letra }));
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     if (answeredCount < total) {
       if (!confirm("Ainda existem questões não respondidas. Deseja finalizar mesmo assim?")) {
         return;
       }
     }
-    setFinished(true);
-    toast.success("Simulado finalizado!");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    if (!simuladoId) {
+      toast.error("Simulado invalido para envio de resultado.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const response = await apiClient.submitSimulado(simuladoId, answers);
+      setSavedResult(response.resultado);
+      setFinished(true);
+      setSummaryOpen(true);
+      toast.success("Resultado salvo com sucesso!");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel finalizar o simulado.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const getDifficultyColor = (difficulty?: string) => {
@@ -223,9 +303,23 @@ export default function SimuladoExecucaoPage() {
             {/* Enunciado */}
             <div className="prose prose-slate dark:prose-invert max-w-none">
               <p className="text-base md:text-lg leading-relaxed whitespace-pre-wrap font-medium text-foreground/90">
-                {currentQuestion.enunciado}
+                {stripImageMarkers(currentQuestion.enunciado)}
               </p>
             </div>
+
+            {questionImageUrls.length > 0 && (
+              <div className="space-y-3">
+                {questionImageUrls.map((imgUrl, idx) => (
+                  <img
+                    key={`${imgUrl}-${idx}`}
+                    src={imgUrl}
+                    alt={`Imagem da questao ${currentIndex + 1} (${idx + 1})`}
+                    className="max-h-[420px] w-full rounded-lg border border-border object-contain bg-muted/20"
+                    loading="lazy"
+                  />
+                ))}
+              </div>
+            )}
 
             {/* Alternativas */}
             <div className="grid gap-3">
@@ -260,7 +354,7 @@ export default function SimuladoExecucaoPage() {
                       {alt.letra}
                     </div>
                     <span className={`text-sm md:text-base pt-1 ${finished && isCorrect ? "font-medium text-green-700 dark:text-green-300" : ""}`}>
-                      {alt.texto}
+                      {stripImageMarkers(alt.texto)}
                     </span>
                     
                     {isCorrect && <CheckCircle className="absolute right-4 top-4 w-5 h-5 text-green-600" />}
@@ -318,27 +412,80 @@ export default function SimuladoExecucaoPage() {
                 variant="secondary" 
                 onClick={handleFinish}
                 className="hidden sm:flex"
+                disabled={submitting}
               >
-                Entregar Simulado
+                {submitting ? "Enviando..." : "Entregar Simulado"}
               </Button>
             )}
             
             <Button
-              onClick={() => {
+              onClick={async () => {
                 if (currentIndex === total - 1) {
-                  if (!finished) handleFinish();
+                  if (!finished) {
+                    await handleFinish();
+                  } else {
+                    setSummaryOpen(true);
+                  }
                 } else {
                   setCurrentIndex((i) => Math.min(total - 1, i + 1));
                 }
               }}
               className="w-32"
+              disabled={submitting}
             >
-              {currentIndex === total - 1 ? (finished ? "Concluir" : "Finalizar") : "Próxima"}
+              {currentIndex === total - 1 ? (finished ? "Concluir" : (submitting ? "Enviando" : "Finalizar")) : "Próxima"}
               {currentIndex < total - 1 && <ChevronRight className="w-4 h-4 ml-2" />}
             </Button>
           </div>
         </div>
       </main>
+
+      <Dialog open={summaryOpen} onOpenChange={setSummaryOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resumo Final do Simulado</DialogTitle>
+            <DialogDescription>
+              Resultado consolidado da sua tentativa atual.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-muted-foreground">Acertos</div>
+                <div className="text-2xl font-bold">{score}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-muted-foreground">Total de Questões</div>
+                <div className="text-2xl font-bold">{total}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-muted-foreground">Nao Respondidas</div>
+                <div className="text-2xl font-bold">{unansweredCount}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-muted-foreground">Percentual</div>
+                <div className="text-2xl font-bold">{scorePercent}%</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setSummaryOpen(false)}>
+              Revisar respostas
+            </Button>
+            <Button onClick={() => router.push("/aluno/simulados")}>
+              Voltar para simulados
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

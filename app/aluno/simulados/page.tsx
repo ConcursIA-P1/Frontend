@@ -33,16 +33,17 @@ import { useToast } from "@/hooks/use-toast";
 import { apiClient, Question, Simulado } from "@/lib/api-client";
 import Link from "next/link";
 
-function SimuladosList() {
-  const { simulados, loading, error, fetchSimulados } = useSimulados();
+type SimuladosListProps = {
+  simulados: Simulado[];
+  loading: boolean;
+  error: string | null;
+};
+
+function SimuladosList({ simulados, loading, error }: SimuladosListProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [selectedSimulado, setSelectedSimulado] = useState<Simulado | null>(null);
   const { toast } = useToast();
-
-  useEffect(() => {
-    fetchSimulados();
-  }, [fetchSimulados]);
 
   if (loading) {
     return (
@@ -119,8 +120,14 @@ function SimuladosList() {
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-bold text-primary">—</div>
-                <div className="text-xs text-muted-foreground">Não realizado</div>
+                <div className="text-2xl font-bold text-primary">
+                  {s.resultado ? `${s.resultado.percentual}%` : "—"}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {s.resultado
+                    ? `${s.resultado.score}/${s.resultado.total_questoes} acertos`
+                    : "Não realizado"}
+                </div>
               </div>
             </div>
             <div className="flex gap-2">
@@ -181,7 +188,7 @@ function SimuladosList() {
 }
 
 export default function SimuladosPage() {
-  const { generateQuickSimulado, fetchSimulados } = useSimulados();
+  const { simulados, loading, error, generateQuickSimulado, fetchSimulados } = useSimulados();
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   
@@ -214,6 +221,10 @@ export default function SimuladosPage() {
 
     loadFilters();
   }, []);
+
+  useEffect(() => {
+    fetchSimulados();
+  }, [fetchSimulados]);
 
   const handleGenerate = async () => {
     const qtd = parseInt(quantidade);
@@ -409,7 +420,7 @@ export default function SimuladosPage() {
           {/* Simulados List */}
           <div className="lg:col-span-2 space-y-4">
             <h2 className="text-xl font-bold">Simulados Recentes</h2>
-            <SimuladosList />
+            <SimuladosList simulados={simulados} loading={loading} error={error} />
           </div>
         </div>
       </main>
