@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { StudentNav } from "@/components/student-nav";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { apiClient, Simulado, Turma } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Users, FileText } from "lucide-react";
@@ -15,6 +17,8 @@ export default function TurmasAlunoPage() {
   const [loading, setLoading] = useState(true);
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [simuladosPorTurma, setSimuladosPorTurma] = useState<Record<string, Simulado[]>>({});
+  const [codigoTurma, setCodigoTurma] = useState("");
+  const [entrando, setEntrando] = useState(false);
 
   const token = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -56,6 +60,39 @@ export default function TurmasAlunoPage() {
     load();
   }, [token, toast]);
 
+  const handleEntrarPorCodigo = async () => {
+    const codigo = codigoTurma.trim().toUpperCase();
+    if (!codigo || codigo.length < 4) {
+      toast({
+        title: "Codigo invalido",
+        description: "Informe o codigo da turma (minimo 4 caracteres).",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!token) {
+      toast({ title: "Nao autenticado", description: "Faca login para continuar.", variant: "destructive" });
+      return;
+    }
+    setEntrando(true);
+    try {
+      const turmaNova = await apiClient.enterTurmaByCode(codigo, token);
+      setTurmas((prev) => [turmaNova, ...prev]);
+      setSimuladosPorTurma((prev) => ({ ...prev, [turmaNova.id]: [] }));
+      setCodigoTurma("");
+      toast({ title: "Sucesso", description: `Voce entrou na turma "${turmaNova.nome}".` });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description:
+          error instanceof Error ? error.message : "Turma nao encontrada com esse codigo.",
+        variant: "destructive",
+      });
+    } finally {
+      setEntrando(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <StudentNav />
@@ -67,6 +104,43 @@ export default function TurmasAlunoPage() {
             Acompanhe suas turmas e os simulados publicados pelo professor.
           </p>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Entrar em turma</CardTitle>
+            <CardDescription>
+              Peça o codigo da turma ao seu professor e digite abaixo para entrar.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="codigo">Codigo da turma</Label>
+              <Input
+                id="codigo"
+                placeholder="Ex: ABC123"
+                value={codigoTurma}
+                onChange={(e) => setCodigoTurma(e.target.value.toUpperCase())}
+                maxLength={10}
+                disabled={entrando}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button
+                onClick={handleEntrarPorCodigo}
+                disabled={entrando || codigoTurma.trim().length < 4}
+              >
+                {entrando ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Entrando...
+                  </>
+                ) : (
+                  "Entrar na turma"
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {loading ? (
           <Card>

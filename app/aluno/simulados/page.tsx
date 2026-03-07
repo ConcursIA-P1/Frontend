@@ -31,6 +31,7 @@ import { Calendar, FileText, Target, Loader2 } from "lucide-react";
 import { useSimulados } from "@/hooks/use-api";
 import { useToast } from "@/hooks/use-toast";
 import { apiClient, Question, Simulado } from "@/lib/api-client";
+import { buildQuestionImageUrls, stripImageMarkers } from "@/lib/question-content";
 import Link from "next/link";
 
 type SimuladosListProps = {
@@ -165,18 +166,38 @@ function SimuladosList({ simulados, loading, error }: SimuladosListProps) {
             {(selectedSimulado?.questions || []).map((q: Question, idx: number) => (
               <Card key={q.id}>
                 <CardContent className="p-4">
-                  <div className="text-sm font-medium mb-2">
-                    Questão {idx + 1}
-                  </div>
-                  <p className="text-sm mb-3">{q.enunciado}</p>
-                  <div className="space-y-1">
-                    {q.alternativas?.map((alt) => (
-                      <div key={alt.letra} className="text-sm text-muted-foreground">
-                        <span className="font-mono mr-2">{alt.letra}.</span>
-                        {alt.texto}
-                      </div>
-                    ))}
-                  </div>
+                  {(() => {
+                    const imageUrls = buildQuestionImageUrls(q);
+                    return (
+                      <>
+                        <div className="text-sm font-medium mb-2">
+                          Questão {idx + 1}
+                        </div>
+                        <p className="text-sm mb-3 whitespace-pre-wrap">{stripImageMarkers(q.enunciado)}</p>
+                        {imageUrls.length > 0 && (
+                          <div className="mb-3 space-y-2">
+                            {imageUrls.map((url, imageIdx) => (
+                              <img
+                                key={`${q.id}-${imageIdx}`}
+                                src={url}
+                                alt={`Imagem da questao ${idx + 1} (${imageIdx + 1})`}
+                                className="max-h-[320px] w-full rounded-md border border-border object-contain bg-muted/20"
+                                loading="lazy"
+                              />
+                            ))}
+                          </div>
+                        )}
+                        <div className="space-y-1">
+                          {q.alternativas?.map((alt) => (
+                            <div key={alt.letra} className="text-sm text-muted-foreground">
+                              <span className="font-mono mr-2">{alt.letra}.</span>
+                              {stripImageMarkers(alt.texto)}
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             ))}

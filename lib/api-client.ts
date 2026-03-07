@@ -18,6 +18,7 @@ export interface ApiResponse<T = unknown> {
 export interface Alternativa {
   letra: string;
   texto: string;
+  imagem_url?: string;
 }
 
 export interface Question {
@@ -102,10 +103,16 @@ export interface TurmaUser {
 export interface Turma {
   id: string;
   nome: string;
+  codigo?: string | null;
   professor?: TurmaUser | null;
   alunos: TurmaUser[];
   created_at: string;
   updated_at: string;
+}
+
+export interface TurmaCreateData {
+  nome: string;
+  professor_id?: string;
 }
 
 // Tipos de chat/RAG
@@ -374,6 +381,14 @@ class ApiClient {
     });
   }
 
+  async createTurma(data: TurmaCreateData, token?: string): Promise<Turma> {
+    return this.request("/turmas", {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: JSON.stringify(data),
+    });
+  }
+
   async listTurmaSimulados(turmaId: string, token: string): Promise<Simulado[]> {
     return this.request(`/turmas/${turmaId}/simulados`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -388,6 +403,32 @@ class ApiClient {
     return this.request(`/turmas/${turmaId}/simulados/${simuladoId}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+
+  async listAlunosDisponiveis(token: string): Promise<TurmaUser[]> {
+    return this.request("/turmas/alunos-disponiveis", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+
+  async addAlunosToTurma(
+    turmaId: string,
+    alunosIds: string[],
+    token: string,
+  ): Promise<Turma> {
+    return this.request(`/turmas/${turmaId}/alunos`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ alunos_ids: alunosIds }),
+    });
+  }
+
+  async enterTurmaByCode(codigo: string, token: string): Promise<Turma> {
+    return this.request("/turmas/entrar", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ codigo: codigo.toUpperCase().trim() }),
     });
   }
 

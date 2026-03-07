@@ -32,6 +32,7 @@ import { FileText, Plus, Sparkles, Trash2, Loader2 } from "lucide-react";
 import { useQuestions, useSimulados } from "@/hooks/use-api";
 import { useToast } from "@/hooks/use-toast";
 import { apiClient, Question, Turma } from "@/lib/api-client";
+import { buildQuestionImageUrls, stripImageMarkers } from "@/lib/question-content";
 
 function QuestionsInProva({
   questions,
@@ -60,7 +61,7 @@ function QuestionsInProva({
                 <Badge>{q.materia || "Geral"}</Badge>
               </div>
               <p className="text-sm leading-relaxed line-clamp-2">
-                {q.enunciado}
+                {stripImageMarkers(q.enunciado)}
               </p>
             </div>
             <Button size="icon" variant="ghost" onClick={() => onRemove(q.id)}>
@@ -511,18 +512,38 @@ export default function CriarProvaPage() {
           <div className="space-y-4">
             {questionsInProva.map((q, idx) => (
               <div key={q.id} className="border rounded-lg p-4">
-                <div className="text-sm font-medium mb-2">
-                  Questão {idx + 1}
-                </div>
-                <p className="text-sm mb-3">{q.enunciado}</p>
-                <div className="space-y-1">
-                  {q.alternativas?.map((alt) => (
-                    <div key={alt.letra} className="text-sm text-muted-foreground">
-                      <span className="font-mono mr-2">{alt.letra}.</span>
-                      {alt.texto}
-                    </div>
-                  ))}
-                </div>
+                {(() => {
+                  const imageUrls = buildQuestionImageUrls(q);
+                  return (
+                    <>
+                      <div className="text-sm font-medium mb-2">
+                        Questão {idx + 1}
+                      </div>
+                      <p className="text-sm mb-3 whitespace-pre-wrap">{stripImageMarkers(q.enunciado)}</p>
+                      {imageUrls.length > 0 && (
+                        <div className="mb-3 space-y-2">
+                          {imageUrls.map((url, imageIdx) => (
+                            <img
+                              key={`${q.id}-${imageIdx}`}
+                              src={url}
+                              alt={`Imagem da questao ${idx + 1} (${imageIdx + 1})`}
+                              className="max-h-[280px] w-full rounded-md border border-border object-contain bg-muted/20"
+                              loading="lazy"
+                            />
+                          ))}
+                        </div>
+                      )}
+                      <div className="space-y-1">
+                        {q.alternativas?.map((alt) => (
+                          <div key={alt.letra} className="text-sm text-muted-foreground">
+                            <span className="font-mono mr-2">{alt.letra}.</span>
+                            {stripImageMarkers(alt.texto)}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             ))}
           </div>

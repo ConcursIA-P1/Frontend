@@ -17,28 +17,14 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
   apiClient,
-  resolveQuestionImageUrl,
   Simulado,
   SimuladoResultado,
 } from "@/lib/api-client";
+import { buildQuestionImageUrls, stripImageMarkers } from "@/lib/question-content";
 import { Loader2, ChevronLeft, ChevronRight, CheckCircle, BookOpen, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
-// Tipo para mapear as respostas (ID da questão -> Letra da alternativa)
 type AnswerMap = Record<string, string>;
-
-function stripImageMarkers(text?: string): string {
-  if (!text) return "";
-  const markerRegex = /\[IMAGEM:\s*([^\]]+)\]/gi;
-  return text.replace(markerRegex, "").replace(/\s{2,}/g, " ").trim();
-}
-
-function extractImagePaths(text?: string): string[] {
-  if (!text) return [];
-  const markerRegex = /\[IMAGEM:\s*([^\]]+)\]/gi;
-  const matches = Array.from(text.matchAll(markerRegex));
-  return matches.map((m) => m[1]?.trim()).filter((v): v is string => Boolean(v));
-}
 
 export default function SimuladoExecucaoPage() {
   const params = useParams<{ id: string }>();
@@ -110,18 +96,7 @@ export default function SimuladoExecucaoPage() {
 
   const questionImageUrls = useMemo(() => {
     if (!currentQuestion) return [];
-
-    const fromEnunciado = extractImagePaths(currentQuestion.enunciado);
-    const fromAlternativas = (currentQuestion.alternativas || []).flatMap((alt) =>
-      extractImagePaths(alt.texto),
-    );
-    const fromField = currentQuestion.imagem_url ? [currentQuestion.imagem_url] : [];
-
-    const all = [...fromField, ...fromEnunciado, ...fromAlternativas]
-      .map((p) => resolveQuestionImageUrl(p))
-      .filter((u): u is string => Boolean(u));
-
-    return Array.from(new Set(all));
+    return buildQuestionImageUrls(currentQuestion);
   }, [currentQuestion]);
 
   const handleSelect = (questionId: string, letra: string) => {

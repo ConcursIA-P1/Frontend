@@ -13,8 +13,6 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
-  BookOpen,
-  Brain,
   Calendar,
   Clock,
   Target,
@@ -148,72 +146,6 @@ export default function AlunoDashboard() {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Study Plan Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Plano de Estudos Hoje</CardTitle>
-                <CardDescription>
-                  Suas atividades recomendadas para hoje
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-start gap-4 p-4 rounded-lg border border-border bg-muted/30">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                    <BookOpen className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-medium mb-1">
-                      Matemática - Funções Quadráticas
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Revisar teoria e resolver 15 questões
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Progress value={40} className="flex-1" />
-                      <span className="text-xs text-muted-foreground">
-                        6/15
-                      </span>
-                    </div>
-                  </div>
-                  <Button size="sm" asChild>
-                    <Link href="/aluno/simulados">Continuar</Link>
-                  </Button>
-                </div>
-
-                <div className="flex items-start gap-4 p-4 rounded-lg border border-border">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                    <Brain className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-medium mb-1">Redação - Argumentação</h3>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Praticar construção de argumentos
-                    </p>
-                    <Badge variant="secondary">Não iniciado</Badge>
-                  </div>
-                  <Button size="sm" variant="outline" asChild>
-                    <Link href="/aluno/assistente">Iniciar</Link>
-                  </Button>
-                </div>
-
-                <div className="flex items-start gap-4 p-4 rounded-lg border border-border">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                    <Target className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-medium mb-1">Simulado Semanal</h3>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      45 questões de múltiplas disciplinas
-                    </p>
-                    <Badge variant="secondary">Agendado 15:00</Badge>
-                  </div>
-                  <Button size="sm" variant="outline" asChild>
-                    <Link href="/aluno/simulados">Ver</Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Quick Actions */}
             <Card>
               <CardHeader>
