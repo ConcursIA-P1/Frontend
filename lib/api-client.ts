@@ -198,13 +198,7 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {},
   ): Promise<T> {
-    // Garantir trailing slash antes de query params para evitar redirect 307
-    // que pode causar downgrade HTTPS→HTTP em produção (Nginx/FastAPI)
-    const normalizedEndpoint = endpoint.replace(/^(\/[^?]*?)(\?|$)/, (_match, path, rest) => {
-      if (path.endsWith("/")) return path + rest;
-      return path + "/" + rest;
-    });
-    const url = `${this.baseUrl}${normalizedEndpoint}`;
+    const url = `${this.baseUrl}${endpoint}`;
 
     try {
       const response = await fetch(url, {
