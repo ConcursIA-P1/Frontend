@@ -274,7 +274,7 @@ class ApiClient {
     params.append("page", page.toString());
     params.append("page_size", page_size.toString());
 
-    return this.request(`/questions?${params.toString()}`);
+    return this.request(`/questions/?${params.toString()}`);
   }
 
   // Obter questões aleatórias
