@@ -27,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Calendar, FileText, Target, Loader2 } from "lucide-react";
+import { Calendar, FileText, Target, Loader2, GraduationCap, BookOpen } from "lucide-react";
 import { useSimulados } from "@/hooks/use-api";
 import { useToast } from "@/hooks/use-toast";
 import { apiClient, Question, Simulado } from "@/lib/api-client";
@@ -96,13 +96,28 @@ function SimuladosList({ simulados, loading, error }: SimuladosListProps) {
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
-                      {new Date(s.created_at || s.criado_em).toLocaleDateString()}
+                      {new Date(s.created_at || s.criado_em || new Date().toISOString()).toLocaleDateString()}
                     </span>
                     <span className="flex items-center gap-1">
                       <Target className="w-3 h-3" />
                       {s.total_questoes || s.questoes?.length || 0} questões
                     </span>
                   </div>
+                  {/* Badge de turma/professor para simulados atribuídos */}
+                  {s.turma_nome && (
+                    <div className="flex gap-2 mt-1 flex-wrap">
+                      <Badge variant="default" className="text-xs gap-1">
+                        <BookOpen className="w-3 h-3" />
+                        {s.turma_nome}
+                      </Badge>
+                      {s.professor_nome && (
+                        <Badge variant="outline" className="text-xs gap-1">
+                          <GraduationCap className="w-3 h-3" />
+                          Prof. {s.professor_nome}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                   <div className="flex gap-2 mt-2 flex-wrap">
                     {s.questoes_por_materia
                       ? Object.entries(s.questoes_por_materia).map(
@@ -228,7 +243,9 @@ export default function SimuladosPage() {
           apiClient.getQuestionsStats(),
         ]);
         setMateriasDisponiveis(materiasResp || []);
-        const porAno = statsResp?.data?.por_ano || statsResp?.por_ano || {};
+        const porAno = (statsResp as Record<string, unknown>)?.data?.hasOwnProperty?.("por_ano")
+          ? (statsResp as any).data.por_ano
+          : (statsResp as any)?.por_ano || {};
         const years = Object.keys(porAno)
           .map((v) => Number(v))
           .filter((v) => Number.isFinite(v))

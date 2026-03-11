@@ -65,7 +65,7 @@ export default function ProfessorDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{simulados.length}</div>
-              <p className="text-xs text-muted-foreground mt-1">simulados no backend</p>
+              <p className="text-xs text-muted-foreground mt-1">simulados criados</p>
             </CardContent>
           </Card>
 
@@ -80,7 +80,7 @@ export default function ProfessorDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">--</div>
-              <p className="text-xs text-muted-foreground mt-1">sem endpoint de turmas/alunos</p>
+              <p className="text-xs text-muted-foreground mt-1">disponível em breve</p>
             </CardContent>
           </Card>
 
@@ -88,7 +88,7 @@ export default function ProfessorDashboard() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Média Geral
+                  Matérias
                 </CardTitle>
                 <TrendingUp className="w-4 h-4 text-muted-foreground" />
               </div>
@@ -97,7 +97,7 @@ export default function ProfessorDashboard() {
               <div className="text-3xl font-bold">
                 {stats?.por_materia ? Object.keys(stats.por_materia).length : 0}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">matérias com questões</p>
+              <p className="text-xs text-muted-foreground mt-1">áreas com questões</p>
             </CardContent>
           </Card>
         </div>
@@ -195,7 +195,7 @@ export default function ProfessorDashboard() {
               <CardHeader>
                 <CardTitle>Simulados Recentes</CardTitle>
                 <CardDescription>
-                  Últimos simulados gerados no backend
+                  Últimos simulados gerados
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -232,16 +232,15 @@ export default function ProfessorDashboard() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Backend Status */}
+            {/* Resumo */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Status da Integração</CardTitle>
+                <CardTitle className="text-base">Visão Geral</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <p>Dados reais conectados: banco de questões e simulados.</p>
-                <p>Pendente no backend: turmas, alunos e resultados por turma.</p>
+                <p>Gerencie suas turmas, crie provas e acompanhe o desempenho dos alunos.</p>
                 <Button variant="link" className="w-full" asChild>
-                  <Link href="/professor/turmas">Ver status de turmas →</Link>
+                  <Link href="/professor/turmas">Gerenciar turmas →</Link>
                 </Button>
               </CardContent>
             </Card>
@@ -275,7 +274,7 @@ export default function ProfessorDashboard() {
             {/* Statistics */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Resumo do Backend</CardTitle>
+                <CardTitle className="text-base">Estatísticas</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <div className="flex items-center justify-between">

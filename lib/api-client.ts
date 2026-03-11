@@ -67,6 +67,9 @@ export interface Simulado {
   resultado?: SimuladoResultado;
   created_at?: string;
   criado_em?: string;
+  // Info de turma (simulados atribuídos por professor)
+  turma_nome?: string;
+  professor_nome?: string;
 }
 
 export interface SimuladoResultado {
@@ -312,17 +315,19 @@ class ApiClient {
    */
 
   // Gerar simulado personalizado
-  async generateSimulado(data: any): Promise<any> {
+  async generateSimulado(data: any, token?: string): Promise<any> {
     return this.request("/simulados/generate", {
       method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       body: JSON.stringify(data),
     });
   }
 
   // Gerar simulado rápido
-  async generateQuickSimulado(data: any): Promise<any> {
+  async generateQuickSimulado(data: any, token?: string): Promise<any> {
     return this.request("/simulados/quick", {
       method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       body: JSON.stringify(data),
     });
   }
@@ -332,15 +337,18 @@ class ApiClient {
     return this.request(`/simulados/${id}`);
   }
 
-  // Listar simulados (paginação opcional)
+  // Listar simulados (paginação opcional, com auth)
   async listSimulados(
     page: number = 1,
     page_size: number = 20,
+    token?: string,
   ): Promise<SimuladoListResponse> {
     const params = new URLSearchParams();
     params.append("page", page.toString());
     params.append("page_size", page_size.toString());
-    return this.request(`/simulados?${params.toString()}`);
+    return this.request(`/simulados?${params.toString()}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
   }
 
   // Obter questões de um simulado

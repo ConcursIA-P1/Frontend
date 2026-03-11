@@ -105,12 +105,18 @@ export function useSimulados() {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const getToken = (): string | undefined => {
+    if (typeof window === "undefined") return undefined;
+    return localStorage.getItem("auth_token") || undefined;
+  };
+
   const fetchSimulados = useCallback(
     async (page: number = 1, page_size: number = 20) => {
       try {
         setLoading(true);
-        const response = await apiClient.listSimulados(page, page_size);
-        setSimulados(response.items || response.data || []);
+        const token = getToken();
+        const response = await apiClient.listSimulados(page, page_size, token);
+        setSimulados(response.items || []);
         setError(null);
       } catch (err) {
         const message =
@@ -132,7 +138,8 @@ export function useSimulados() {
     async (data: any) => {
       try {
         setLoading(true);
-        const result = await apiClient.generateSimulado(data);
+        const token = getToken();
+        const result = await apiClient.generateSimulado(data, token);
         toast({
           title: "Sucesso",
           description: `Simulado gerado com ${result?.simulado?.total_questoes ?? 0} questões`,
@@ -159,7 +166,8 @@ export function useSimulados() {
     async (data: any) => {
       try {
         setLoading(true);
-        const result = await apiClient.generateQuickSimulado(data);
+        const token = getToken();
+        const result = await apiClient.generateQuickSimulado(data, token);
         return result;
       } catch (err) {
         const message =

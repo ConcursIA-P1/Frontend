@@ -18,6 +18,8 @@ import {
   Target,
   TrendingUp,
   MessageSquare,
+  BookOpen,
+  GraduationCap,
 } from "lucide-react";
 import Link from "next/link";
 import { useSimulados, useStats } from "@/hooks/use-api";
@@ -138,7 +140,7 @@ export default function AlunoDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{simulados.length}</div>
-              <p className="text-xs text-muted-foreground mt-1">total no backend</p>
+              <p className="text-xs text-muted-foreground mt-1">simulados disponíveis</p>
             </CardContent>
           </Card>
         </div>
@@ -193,7 +195,7 @@ export default function AlunoDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">
-                  Desempenho por Matéria
+                  Distribuição por Matéria
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -236,10 +238,26 @@ export default function AlunoDashboard() {
                       <Target className="w-4 h-4 text-primary" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium">Completou simulado</p>
+                      <p className="text-sm font-medium">
+                        {simulados[0].turma_nome ? "Simulado atribuído" : "Simulado gerado"}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(simulados[0].created_at || simulados[0].criado_em || new Date().toISOString()).toLocaleDateString()}
                       </p>
+                      {simulados[0].turma_nome && (
+                        <div className="flex gap-1 mt-1 flex-wrap">
+                          <Badge variant="default" className="text-[10px] px-1.5 py-0 gap-0.5">
+                            <BookOpen className="w-2.5 h-2.5" />
+                            {simulados[0].turma_nome}
+                          </Badge>
+                          {simulados[0].professor_nome && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
+                              <GraduationCap className="w-2.5 h-2.5" />
+                              Prof. {simulados[0].professor_nome}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -248,7 +266,7 @@ export default function AlunoDashboard() {
                   </div>
                 )}
                 <div className="text-xs text-muted-foreground">
-                  Histórico detalhado depende dos próximos endpoints de atividade do aluno.
+                  Continue praticando para melhorar seu desempenho.
                 </div>
               </CardContent>
             </Card>

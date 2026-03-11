@@ -28,11 +28,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FileText, Plus, Sparkles, Trash2, Loader2 } from "lucide-react";
+import { FileText, Plus, Sparkles, Trash2, Loader2, Search, Check } from "lucide-react";
 import { useQuestions, useSimulados } from "@/hooks/use-api";
 import { useToast } from "@/hooks/use-toast";
 import { apiClient, Question, Turma } from "@/lib/api-client";
 import { buildQuestionImageUrls, stripImageMarkers } from "@/lib/question-content";
+import { Checkbox } from "@/components/ui/checkbox";
 
 function QuestionsInProva({
   questions,
@@ -88,6 +89,7 @@ export default function CriarProvaPage() {
   const [titulo, setTitulo] = useState("");
   const [questionsInProva, setQuestionsInProva] = useState<Question[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
 
   // Estado do gerador IA
@@ -96,6 +98,15 @@ export default function CriarProvaPage() {
   const [materiasDisponiveis, setMateriasDisponiveis] = useState<string[]>([]);
   const [turmasDisponiveis, setTurmasDisponiveis] = useState<Turma[]>([]);
   const [turmaSelecionada, setTurmaSelecionada] = useState("");
+
+  // Estado do modal de busca do banco
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<Question[]>([]);
+  const [searchMateria, setSearchMateria] = useState("");
+  const [searchTopico, setSearchTopico] = useState("");
+  const [searchAno, setSearchAno] = useState("");
+  const [selectedSearchIds, setSelectedSearchIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -120,6 +131,60 @@ export default function CriarProvaPage() {
 
   const handleRemoveQuestion = (id: string) => {
     setQuestionsInProva((prev) => prev.filter((q) => q.id !== id));
+  };
+
+  // ---- Busca de questões do banco ----
+  const handleSearchQuestions = async () => {
+    setSearchLoading(true);
+    try {
+      const data = await apiClient.listQuestions(
+        searchMateria || undefined,
+        searchAno ? parseInt(searchAno) : undefined,
+        searchTopico || undefined,
+        1,
+        50,
+      );
+      setSearchResults(data.items || []);
+      setSelectedSearchIds(new Set());
+    } catch {
+      toast({
+        title: "Erro",
+        description: "Não foi possível buscar questões",
+        variant: "destructive",
+      });
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const toggleSearchSelection = (id: string) => {
+    setSelectedSearchIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleAddSelectedFromSearch = () => {
+    const idsJaNaProva = new Set(questionsInProva.map((q) => q.id));
+    const novas = searchResults.filter(
+      (q) => selectedSearchIds.has(q.id) && !idsJaNaProva.has(q.id),
+    );
+    if (novas.length === 0) {
+      toast({
+        title: "Aviso",
+        description: "Nenhuma questão nova selecionada para adicionar",
+      });
+      return;
+    }
+    setQuestionsInProva((prev) => [...prev, ...novas]);
+    toast({
+      title: "Questões adicionadas!",
+      description: `${novas.length} questão(ões) adicionada(s) à prova`,
+    });
+    setSearchOpen(false);
+    setSelectedSearchIds(new Set());
   };
 
   const handleGenerateWithAI = async () => {
@@ -235,35 +300,42 @@ export default function CriarProvaPage() {
       return;
     }
 
-    setIsGenerating(true);
+    setIsSaving(true);
     try {
+      const token = localStorage.getItem("auth_token") || undefined;
       const response = await apiClient.generateSimulado({
         titulo,
         anos: [...new Set(questionsInProva.map((q) => q.ano).filter(Boolean))],
         materias_config: materiasConfig,
-      });
+      }, token);
 
       const simuladoId = response?.simulado?.id as string | undefined;
-      const token = localStorage.getItem("auth_token");
 
       if (turmaSelecionada && simuladoId && token) {
         await apiClient.assignSimuladoToTurma(turmaSelecionada, simuladoId, token);
       }
 
       toast({
-        title: "Sucesso",
+        title: "✅ Prova salva com sucesso!",
         description: turmaSelecionada
-          ? "Prova salva e atribuida a turma selecionada"
-          : "Prova salva no backend como simulado",
+          ? "Prova salva e atribuída à turma selecionada"
+          : "Prova salva com sucesso",
       });
+
+      // Resetar formulário para evitar salvar a mesma prova novamente
+      setTitulo("");
+      setQuestionsInProva([]);
+      setTurmaSelecionada("");
+      setIaMateria("");
+      setIaQuantidade("10");
     } catch (err) {
       toast({
         title: "Erro",
-        description: err instanceof Error ? err.message : "Nao foi possivel salvar no backend",
+        description: err instanceof Error ? err.message : "Não foi possível salvar a prova",
         variant: "destructive",
       });
     } finally {
-      setIsGenerating(false);
+      setIsSaving(false);
     }
   };
 
@@ -348,10 +420,16 @@ export default function CriarProvaPage() {
                       Adicione ou selecione questões do banco
                     </CardDescription>
                   </div>
-                  <Button size="sm" onClick={handleAddRandomQuestions}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Adicionar Aleatórias
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => { setSearchOpen(true); handleSearchQuestions(); }}>
+                      <Search className="w-4 h-4 mr-2" />
+                      Buscar do Banco
+                    </Button>
+                    <Button size="sm" onClick={handleAddRandomQuestions}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Adicionar Aleatórias
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -366,11 +444,20 @@ export default function CriarProvaPage() {
               <Button
                 size="lg"
                 className="flex-1"
-                disabled={questionsInProva.length === 0 || !titulo}
+                disabled={questionsInProva.length === 0 || !titulo || isSaving}
                 onClick={handleSaveProva}
               >
-                <FileText className="w-4 h-4 mr-2" />
-                Salvar Prova
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4 mr-2" />
+                    Salvar Prova
+                  </>
+                )}
               </Button>
               <Button
                 size="lg"
@@ -501,6 +588,116 @@ export default function CriarProvaPage() {
           </div>
         </div>
       </main>
+      {/* Dialog: Buscar questões do banco */}
+      <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Buscar Questões do Banco</DialogTitle>
+            <DialogDescription>
+              Filtre e selecione as questões que deseja adicionar à prova
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Filtros */}
+          <div className="grid sm:grid-cols-3 gap-3 mb-4">
+            <div className="space-y-1">
+              <Label className="text-xs">Matéria</Label>
+              <Select value={searchMateria} onValueChange={setSearchMateria}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Todas">Todas</SelectItem>
+                  {materiasDisponiveis.map((m) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Tópico</Label>
+              <Input
+                placeholder="Ex: Geometria"
+                value={searchTopico}
+                onChange={(e) => setSearchTopico(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Ano</Label>
+              <Input
+                placeholder="Ex: 2023"
+                type="number"
+                value={searchAno}
+                onChange={(e) => setSearchAno(e.target.value)}
+              />
+            </div>
+          </div>
+          <Button size="sm" onClick={handleSearchQuestions} disabled={searchLoading} className="mb-4">
+            {searchLoading ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Buscando...</>
+            ) : (
+              <><Search className="w-4 h-4 mr-2" />Buscar</>
+            )}
+          </Button>
+
+          {/* Resultados */}
+          {searchResults.length === 0 && !searchLoading && (
+            <div className="text-center text-muted-foreground py-6 text-sm">
+              Nenhuma questão encontrada. Ajuste os filtros e tente novamente.
+            </div>
+          )}
+          <div className="space-y-2 max-h-[45vh] overflow-y-auto">
+            {searchResults.map((q) => {
+              const jaNaProva = questionsInProva.some((qp) => qp.id === q.id);
+              const selected = selectedSearchIds.has(q.id);
+              return (
+                <div
+                  key={q.id}
+                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    jaNaProva
+                      ? "opacity-50 bg-muted/40 cursor-not-allowed"
+                      : selected
+                        ? "border-primary bg-primary/5"
+                        : "hover:bg-muted/40"
+                  }`}
+                  onClick={() => !jaNaProva && toggleSearchSelection(q.id)}
+                >
+                  <Checkbox
+                    checked={selected || jaNaProva}
+                    disabled={jaNaProva}
+                    className="mt-1"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="secondary" className="text-xs">{q.materia || "Geral"}</Badge>
+                      <span className="text-xs text-muted-foreground">Ano: {q.ano || "—"}</span>
+                      {q.topico && <span className="text-xs text-muted-foreground">• {q.topico}</span>}
+                      {jaNaProva && <Badge variant="outline" className="text-xs">Já na prova</Badge>}
+                    </div>
+                    <p className="text-sm leading-relaxed line-clamp-2">
+                      {stripImageMarkers(q.enunciado)}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Ações */}
+          {searchResults.length > 0 && (
+            <div className="flex items-center justify-between pt-4 border-t">
+              <span className="text-sm text-muted-foreground">
+                {selectedSearchIds.size} questão(ões) selecionada(s)
+              </span>
+              <Button onClick={handleAddSelectedFromSearch} disabled={selectedSearchIds.size === 0}>
+                <Check className="w-4 h-4 mr-2" />
+                Adicionar Selecionadas
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>

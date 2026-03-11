@@ -71,6 +71,21 @@ export default function DesempenhoPage() {
     [stats],
   );
 
+  // Questões resolvidas por matéria (somando questoes_por_materia de cada simulado)
+  const questoesPorMateria = useMemo(() => {
+    const acc: Record<string, number> = {};
+    for (const s of simulados) {
+      if (s.questoes_por_materia) {
+        for (const [materia, qtd] of Object.entries(s.questoes_por_materia)) {
+          acc[materia] = (acc[materia] ?? 0) + qtd;
+        }
+      }
+    }
+    return Object.entries(acc)
+      .map(([materia, quantidade]) => ({ materia, quantidade }))
+      .sort((a, b) => b.quantidade - a.quantidade);
+  }, [simulados]);
+
   return (
     <div className="min-h-screen bg-background">
       <StudentNav />
@@ -185,10 +200,10 @@ export default function DesempenhoPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="w-5 h-5" />
-                  Desempenho por Matéria
+                  Distribuição por Matéria
                 </CardTitle>
                 <CardDescription>
-                  Taxa de acerto em cada área do conhecimento
+                  Proporção de questões disponíveis por área do conhecimento
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -264,32 +279,29 @@ export default function DesempenhoPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Cobertura de Matérias */}
+            {/* Questões Resolvidas por Matéria */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <Target className="w-4 h-4 text-orange-600" />
-                  Cobertura por Matéria
+                  Questões por Matéria
                 </CardTitle>
-                <CardDescription>Percentual no banco de questões</CardDescription>
+                <CardDescription>Questões resolvidas em simulados</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {materiaPerf.length === 0 ? (
+                {questoesPorMateria.length === 0 ? (
                   <div className="text-sm text-muted-foreground">
                     Sem dados ainda.
                   </div>
                 ) : (
-                  materiaPerf.map((item, idx) => (
+                  questoesPorMateria.map((item, idx) => (
                   <div key={idx} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">{item.materia}</span>
                       <Badge variant="secondary" className="text-orange-600">
-                        {item.percent}%
+                        {item.quantidade} {item.quantidade === 1 ? "questão" : "questões"}
                       </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Distribuição atual de questões
-                    </p>
                   </div>
                 )))}
               </CardContent>
@@ -303,20 +315,20 @@ export default function DesempenhoPage() {
               <CardContent className="space-y-3">
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm">Questões resolvidas</span>
+                    <span className="text-sm">Simulados Completos</span>
                     <span className="text-sm font-medium">{historicoSimulados.length}/4</span>
                   </div>
                   <Progress value={Math.min(100, historicoSimulados.length * 25)} />
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm">Questões em simulados</span>
+                    <span className="text-sm">Questões resolvidas</span>
                     <span className="text-sm font-medium">{historicoSimulados.reduce((acc, s) => acc + s.total, 0)}/200</span>
                   </div>
                   <Progress value={Math.min(100, Math.round((historicoSimulados.reduce((acc, s) => acc + s.total, 0) / 200) * 100))} />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Métricas baseadas apenas em dados disponíveis no backend.
+                  Continue praticando para atingir suas metas semanais.
                 </p>
               </CardContent>
             </Card>
